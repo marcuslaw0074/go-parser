@@ -8,7 +8,21 @@
         "uid": "2",
         "numerical": 0,
         "expression": "d",
-        "origin": null
+        "origin": {
+          "rightNode": {
+            "uid": "0",
+            "numerical": 0,
+            "expression": "fs",
+            "origin": null
+          },
+          "operation": "*",
+          "leftNode": {
+            "uid": "1",
+            "numerical": 0,
+            "expression": "Hgrfs",
+            "origin": null
+          }
+        }
       },
       "operation": "-",
       "leftNode": {

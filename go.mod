@@ -1,3 +1,3 @@
-module example-go-parser
+module go-parser
 
 go 1.19

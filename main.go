@@ -26,12 +26,13 @@ type Node struct {
 }
 
 type Expression struct {
-	RightNode     Node                           `json:"rightNode"`
-	Operation     string                         `json:"operation"`
-	LeftNode      Node                           `json:"leftNode"`
-	Function      func(...float64) float64       `json:"-"`
-	LocalFunction func(float64, float64) float64 `json:"-"`
-	Mapping       map[string]int                 `json:"-"`
+	RightNode       Node                           `json:"rightNode"`
+	Operation       string                         `json:"operation"`
+	LeftNode        Node                           `json:"leftNode"`
+	WholeExpression string                         `json:"wholeExpression"`
+	Function        func(...float64) float64       `json:"-"`
+	LocalFunction   func(float64, float64) float64 `json:"-"`
+	Mapping         map[string]int                 `json:"-"`
 }
 
 func generateFunction(s1, s2 Node, operation string) (func(...float64) float64, error) {
@@ -331,17 +332,61 @@ func findOperand(str string) []string {
 func findMapKeysSorted(s map[string]int) []string {
 	la := []string{}
 	for key := range s {
-		fmt.Println(key, s)
 		la = append(la, key)
 	}
-	sort.Strings(la)
+
+	sort.Slice(la, func(i, j int) bool { return s[la[i]] < s[la[j]] })
+	// sort.Strings(la)
+	fmt.Println(la, "findMapKeysSorted", s)
 	return la
 }
+
+func ReplaceExpression(s, replace string, replaceLeft bool) string {
+	operands := []string{}
+	operator := ""
+	switch {
+	case strings.Contains(s, "+"):
+		operands = strings.Split(s, "+")
+		operator = "+"
+	case strings.Contains(s, "-"):
+		operands = strings.Split(s, "-")
+		operator = "-"
+	case strings.Contains(s, "*"):
+		operands = strings.Split(s, "*")
+		operator = "*"
+	case strings.Contains(s, "/"):
+		operands = strings.Split(s, "/")
+		operator = "/"
+	default:
+		return ""
+	}
+	if replaceLeft {
+		return fmt.Sprintf("(%s)%s%s", replace, operator, operands[1])
+	} else {
+		return fmt.Sprintf("%s%s(%s)", operands[0], operator, replace)
+	}
+} 
+
+func ReplaceExpressionBoth(s, replaceRight, replaceLeft string) string {
+	operator := ""
+	switch {
+	case strings.Contains(s, "+"):
+		operator = "+"
+	case strings.Contains(s, "-"):
+		operator = "-"
+	case strings.Contains(s, "*"):
+		operator = "*"
+	case strings.Contains(s, "/"):
+		operator = "/"
+	default:
+		return ""
+	}
+	return fmt.Sprintf("(%s)%s(%s)", replaceLeft, operator, replaceRight)
+} 
 
 func findMapKeys(s map[string]int) []string {
 	la := []string{}
 	for key := range s {
-		fmt.Println(key, s)
 		la = append(la, key)
 	}
 	return la
@@ -407,6 +452,14 @@ func (e *Expression) findEndNode() *Expression {
 	}
 }
 
+func (e *Expression) existSecondEndNode() bool {
+	if e.RightNode.Origin == nil && e.LeftNode.Origin == nil {
+		return false
+	} else {
+		return true
+	}
+}
+
 func (e *Expression) findSecondEndNode() *Expression {
 	if e.RightNode.Origin == nil && e.LeftNode.Origin == nil {
 		return &Expression{}
@@ -443,29 +496,32 @@ func SubSliceFloat(s []int, ls []float64) []float64 {
 }
 
 func findValuesByKeys(keys []string, mapping map[string]int) []int {
-	la := []int{}
+	la := make(( []int), 0)
 	for _, key := range keys {
-		fmt.Println(key)
 		for keyy, val := range mapping {
 			if key == keyy {
 				la = append(la, val)
 			}
 		}
 	}
+	fmt.Println("findValuesByKeys", la, keys, mapping)
 	return la
 }
 
-func (e *Expression) MergeNode() *Expression {
+func (e *Expression) MergeNode(expList ...Expression) *Expression {
 	localMap := map[string]int{}
 	if e.LeftNode.Origin == nil {
 		localMap = e.RightNode.Origin.Mapping
+		fmt.Println(localMap)
 		exp := *e.RightNode.Origin
 		newMap := e.Mapping
 		// delete(newMap, e.RightNode.Expression)
+		fmt.Println(e.RightNode.Uid)
 		delete(newMap, e.RightNode.Uid)
 		originMap := []string{}
 		localMapKeys := findMapKeysSorted(localMap)
-		for key := range newMap {
+		sortedKeys := findMapKeysSorted(newMap)
+		for _, key := range sortedKeys {
 			if strContains(localMapKeys, key) == -1 {
 				_, max := MinMax(findMapValues(localMap))
 				localMap[key] = max + 1
@@ -473,13 +529,16 @@ func (e *Expression) MergeNode() *Expression {
 				originMap = append(originMap, key)
 			}
 		}
+		newlocalValues := findValuesByKeys(localMapKeys, localMap)
+		newValues := findValuesByKeys(sortedKeys, localMap)
+		fmt.Println(localMapKeys, newlocalValues, "gaer")
 		function := func(f ...float64) float64 {
-			fmt.Println(f, localMap)
 			if len(originMap) == 0 {
-				return e.LocalFunction(f[len(f)-1], exp.Function(f[:len(f)-1]...))
+				return e.LocalFunction(f[newValues[0]], exp.Function(SubSliceFloat(newlocalValues, f)...))
 			}
-			return e.LocalFunction(f[len(f)-1], exp.Function(f[:len(f)-1]...))
+			return e.LocalFunction(f[newValues[0]], exp.Function(SubSliceFloat(newlocalValues, f)...))
 		}
+		e.WholeExpression = ReplaceExpression(e.WholeExpression, e.RightNode.Origin.WholeExpression, false)
 		e.Function = function
 		e.RightNode.Origin = nil
 		e.Mapping = localMap
@@ -492,7 +551,8 @@ func (e *Expression) MergeNode() *Expression {
 		delete(newMap, e.LeftNode.Uid)
 		originMap := []string{}
 		localMapKeys := findMapKeysSorted(localMap)
-		for key := range newMap {
+		sortedKeys := findMapKeysSorted(newMap)
+		for _, key := range sortedKeys {
 			if strContains(localMapKeys, key) == -1 {
 				_, max := MinMax(findMapValues(localMap))
 				localMap[key] = max + 1
@@ -500,13 +560,17 @@ func (e *Expression) MergeNode() *Expression {
 				originMap = append(originMap, key)
 			}
 		}
+		newlocalValues := findValuesByKeys(localMapKeys, localMap)
+		newValues := findValuesByKeys(sortedKeys, localMap)
 		function := func(f ...float64) float64 {
-			fmt.Println(f, localMap)
 			if len(originMap) == 0 {
-				return e.LocalFunction(exp.Function(f[:len(f)-1]...), f[len(f)-1])
+				return e.LocalFunction(exp.Function(SubSliceFloat(newlocalValues, f)...), f[newValues[0]])
+				// return e.LocalFunction(f[newValues[0]], exp.Function(SubSliceFloat(newlocalValues, f)...))
 			}
-			return e.LocalFunction(exp.Function(f[:len(f)-1]...), f[len(f)-1])
+			return e.LocalFunction(exp.Function(SubSliceFloat(newlocalValues, f)...), f[newValues[0]])
+			// return e.LocalFunction(f[newValues[0]], exp.Function(SubSliceFloat(newlocalValues, f)...))
 		}
+		e.WholeExpression = ReplaceExpression(e.WholeExpression, e.LeftNode.Origin.WholeExpression, true)
 		e.Function = function
 		e.LeftNode.Origin = nil
 		e.Mapping = localMap
@@ -516,10 +580,8 @@ func (e *Expression) MergeNode() *Expression {
 		localMapRight := e.RightNode.Origin.Mapping
 		expRight := *e.RightNode.Origin
 		originMap := []string{}
-		fmt.Println(localMapLeft)
 		localMapLeftKeys := findMapKeysSorted(localMapLeft)
 		localMapRightKeys := findMapKeysSorted(localMapRight)
-		fmt.Println(localMapLeftKeys, localMapRightKeys, "111")
 		sortedKeys := findMapKeysSorted(localMapRight)
 		for _, key := range sortedKeys {
 			if strContains(localMapLeftKeys, key) == -1 {
@@ -529,19 +591,15 @@ func (e *Expression) MergeNode() *Expression {
 				originMap = append(originMap, key)
 			}
 		}
-		fmt.Println(localMapLeft)
 		newRightValues := findValuesByKeys(localMapRightKeys, localMapLeft)
 		newLeftValues := findValuesByKeys(localMapLeftKeys, localMapLeft)
-		fmt.Println(newLeftValues, newRightValues)
-		fmt.Println(expLeft, expRight)
 		function := func(f ...float64) float64 {
-			fmt.Println(f, localMap)
-			fmt.Println(SubSliceFloat(newLeftValues, f), SubSliceFloat(newRightValues, f))
 			if len(originMap) == 0 {
 				return e.LocalFunction(expLeft.Function(SubSliceFloat(newLeftValues, f)...), expRight.Function(SubSliceFloat(newRightValues, f)...))
 			}
 			return e.LocalFunction(expLeft.Function(SubSliceFloat(newLeftValues, f)...), expRight.Function(SubSliceFloat(newRightValues, f)...))
 		}
+		e.WholeExpression = ReplaceExpressionBoth(e.WholeExpression, e.RightNode.Origin.WholeExpression, e.LeftNode.Origin.WholeExpression)
 		e.Function = function
 		e.RightNode.Origin = nil
 		e.LeftNode.Origin = nil
@@ -551,10 +609,140 @@ func (e *Expression) MergeNode() *Expression {
 	return e
 }
 
+func (e *Expression) generateFunctionMap() (func(...float64) float64, map[string]int) {
+	for e.existSecondEndNode() {
+		e.findSecondEndNode().MergeNode()
+	}
+	return e.Function, e.Mapping
+}
+
 func main() {
 	// str := "example*jvdka"
 	// match, err := regexp.MatchString(`^[_a-zA-Z]\w* *[\*\+\-\/] *[_a-zA-Z]\w*`, str)
 	// fmt.Println("Match: ", match, " Error: ", err)
+
+	exxx := &Expression{
+		RightNode: Node{
+			Uid:        "4",
+			Expression: "e",
+			Origin: &Expression{
+				RightNode: Node{
+					Uid:        "2",
+					Expression: "c",
+					Origin: &Expression{
+						RightNode: Node{
+							Uid:        "0",
+							Expression: "a",
+						},
+						LeftNode: Node{
+							Uid:        "1",
+							Expression: "b",
+						},
+						Operation:     "/",
+						WholeExpression: "b/a",
+						LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
+						Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] / f[1] },
+						Mapping:       map[string]int{"0": 1, "1": 0},
+					},
+				},
+				LeftNode: Node{
+					Uid:        "3",
+					Expression: "d",
+					Origin: &Expression{
+						RightNode: Node{
+							Uid:        "8",
+							Expression: "j",
+							Origin: &Expression{
+								RightNode: Node{
+									Uid:        "0",
+									Expression: "a",
+								},
+								LeftNode: Node{
+									Uid:        "1",
+									Expression: "b",
+								},
+								Operation:     "/",
+								WholeExpression: "b/a",
+								LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
+								Function:      func(f ...float64) float64 { fmt.Println(f, f[0] / f[1]); return f[0] / f[1] },
+								Mapping:       map[string]int{"0": 1, "1": 0},
+							},
+						},
+						LeftNode: Node{
+							Uid:        "9",
+							Expression: "k",
+						},
+						Operation:     "*",
+						WholeExpression: "k*j",
+						LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 * f2 },
+						Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] * f[1] },
+						Mapping:       map[string]int{"8": 1, "9": 0},
+					},
+				},
+				Operation:     "-",
+				WholeExpression: "d-c",
+				LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 - f2 },
+				Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] - f[1] },
+				Mapping:       map[string]int{"2": 1, "3": 0},
+			},
+		},
+		LeftNode: Node{
+			Uid:        "5",
+			Expression: "f",
+			Origin: &Expression{
+				RightNode: Node{
+					Uid:        "2",
+					Expression: "c",
+					Origin: &Expression{
+						RightNode: Node{
+							Uid:        "0",
+							Expression: "a",
+						},
+						LeftNode: Node{
+							Uid:        "1",
+							Expression: "b",
+						},
+						Operation:     "*",
+						WholeExpression: "b*a",
+						LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 * f2 },
+						Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] * f[1] },
+						Mapping:       map[string]int{"0": 1, "1": 0},
+					},
+				},
+				LeftNode: Node{
+					Uid:        "7",
+					Expression: "h",
+				},
+				Operation:     "+",
+				WholeExpression: "h+c",
+				LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 + f2 },
+				Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] + f[1] },
+				Mapping:       map[string]int{"2": 1, "7": 0},
+			},
+		},
+		Operation:     "/",
+		WholeExpression: "f/e",
+		LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
+		Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] / f[1] },
+		Mapping:       map[string]int{"4": 1, "5": 0},
+	}
+
+	fun, mapp := exxx.generateFunctionMap()
+
+	fmt.Println(fun([]float64{1, 2, 3, 4, 5, 6, 7}...), mapp, exxx.WholeExpression)
+
+	fmt.Println("DONE!!!")
+
+	sf, _ := json.Marshal(exxx)
+	fmt.Println(string(sf))
+	exxx.findSecondEndNode().MergeNode()
+	exxx.findSecondEndNode().MergeNode()
+	sf, _ = json.Marshal(exxx)
+	fmt.Println(string(sf))
+	fmt.Println(exxx.Mapping)
+	fmt.Println(exxx.Function([]float64{1, 2, 3, 4}...))
+
+	fmt.Println(exxx.findSecondEndNode())
 
 	exx := &Expression{
 		RightNode: Node{
@@ -576,8 +764,8 @@ func main() {
 			},
 		},
 		LeftNode: Node{
-			Uid:        "5",
-			Expression: "HAHA",
+			Uid:        "2",
+			Expression: "dd",
 			Origin: &Expression{
 				RightNode: Node{
 					Uid:        "2",
@@ -596,7 +784,7 @@ func main() {
 		Operation:     "/",
 		LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
 		Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] / f[1] },
-		Mapping:       map[string]int{"4": 0, "5": 1},
+		Mapping:       map[string]int{"4": 0, "2": 1},
 	}
 
 	fff3 := *exx.MergeNode()
@@ -656,7 +844,7 @@ func main() {
 
 	// sss, _ := json.Marshal(*&ex.RightNode.Origin.MergeNode().Mapping)
 	fff := *ex.RightNode.Origin.MergeNode()
-	fmt.Println(fff.Function([]float64{2, 5, 8}...))
+	fmt.Println(fff.Function([]float64{2, 5, 9}...))
 	ex.RightNode.Origin = &fff
 	fff2 := *ex.MergeNode()
 	ex = &fff2

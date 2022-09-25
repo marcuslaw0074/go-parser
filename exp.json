@@ -1,43 +1,33 @@
 {
   "rightNode": {
-    "uid": "4",
+    "uid": "1d9f3f53-f327-4b05-8edf-e095de07e3c6",
     "numerical": 0,
-    "expression": "j",
+    "expression": "a",
+    "origin": null
+  },
+  "operation": "+",
+  "leftNode": {
+    "uid": "d40bf068-8da7-4fca-b5d2-4dac8add6e57",
+    "numerical": 0,
+    "expression": "d",
     "origin": {
       "rightNode": {
-        "uid": "2",
+        "uid": "5b63b067-7c30-4d25-8097-3906525b0e22",
         "numerical": 0,
-        "expression": "d",
-        "origin": {
-          "rightNode": {
-            "uid": "0",
-            "numerical": 0,
-            "expression": "fs",
-            "origin": null
-          },
-          "operation": "*",
-          "leftNode": {
-            "uid": "1",
-            "numerical": 0,
-            "expression": "Hgrfs",
-            "origin": null
-          }
-        }
-      },
-      "operation": "-",
-      "leftNode": {
-        "uid": "3",
-        "numerical": 0,
-        "expression": "H",
+        "expression": "y",
         "origin": null
-      }
+      },
+      "operation": "/",
+      "leftNode": {
+        "uid": "0a00e11f-86cb-4c2c-906e-c5d22fd7e874",
+        "numerical": 0,
+        "expression": "c",
+        "origin": null
+      },
+      "wholeExpression": "",
+      "mapping": null
     }
   },
-  "operation": "/",
-  "leftNode": {
-    "uid": "5",
-    "numerical": 0,
-    "expression": "HAHA",
-    "origin": null
-  }
+  "wholeExpression": "",
+  "mapping": null
 }

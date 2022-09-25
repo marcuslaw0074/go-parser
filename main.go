@@ -25,6 +25,13 @@ type Node struct {
 	Origin     *Expression `json:"origin"`
 }
 
+type SimpleNode struct {
+	Uid        string  `json:"uid"`
+	Numerical  float64 `json:"numerical"`
+	Expression string  `json:"expression"`
+	IsLeft     bool    `json:"isLeft"`
+}
+
 type Expression struct {
 	RightNode       Node                           `json:"rightNode"`
 	Operation       string                         `json:"operation"`
@@ -773,8 +780,8 @@ func (q *EquationList) generateEquationsList() {
 			RHS:       rhs,
 			LHS:       strings.Split(ele, relation)[0],
 			Relation:  relation,
-			RightVar:  strings.Split(ele, operator)[1],
-			LeftVar:   strings.Split(ele, operator)[0],
+			RightVar:  strings.Split(rhs, operator)[1],
+			LeftVar:   strings.Split(rhs, operator)[0],
 			Operation: operator,
 		})
 	}
@@ -782,7 +789,113 @@ func (q *EquationList) generateEquationsList() {
 
 }
 
-func (* Expression) ExtendExpression() {
+func findAdjListKeys(m map[SimpleNode][]SimpleNode) []SimpleNode {
+	ls := make([]SimpleNode, 0)
+	for key := range m {
+		ls = append(ls, key)
+	}
+	return ls
+}
+
+func matchAdjListKeys(keys []SimpleNode, exp string) (SimpleNode, error) {
+	for _, ele := range keys {
+		if ele.Expression == exp {
+			return ele, nil
+		}
+	}
+	return SimpleNode{}, errors.New("cannot find corresponding node")
+}
+
+func ContainsNode(values []SimpleNode, node SimpleNode) int {
+	for ind, ele := range values {
+		if len(node.Expression) > 0 {
+			if ele.Expression == node.Expression {
+				return ind
+			}
+		} else if ele.Numerical == node.Numerical {
+			return ind
+		}
+	}
+	return -1
+}
+
+func (q *EquationList) GenerateAdjList() (map[SimpleNode][]SimpleNode, []SimpleNode) {
+	q.generateEquationsList()
+	adjList := map[SimpleNode][]SimpleNode{}
+	allNode := []SimpleNode{}
+	for _, ele := range q.EquationsList {
+		keys := findAdjListKeys(adjList)
+		key, err := matchAdjListKeys(keys, ele.LHS)
+		if err != nil {
+			fmt.Println("cannot find corresponding keys")
+			num1, err1 := strconv.ParseFloat(ele.RightVar, 64)
+			num2, err2 := strconv.ParseFloat(ele.LeftVar, 64)
+			keynode := SimpleNode{
+				Uid:        uuid.New().String(),
+				Expression: ele.LHS,
+			}
+			valnodeLeft := SimpleNode{}
+			valnodeRight := SimpleNode{}
+			if err1 == nil {
+				valnodeRight = SimpleNode{
+					Uid:       uuid.New().String(),
+					Numerical: num1,
+					IsLeft:    false,
+				}
+				valnodeLeft = SimpleNode{
+					Uid:        uuid.New().String(),
+					Expression: ele.LeftVar,
+					IsLeft:     true,
+				}
+			} else if err2 == nil {
+				valnodeRight = SimpleNode{
+					Uid:        uuid.New().String(),
+					Expression: ele.RightVar,
+					IsLeft:     false,
+				}
+				valnodeLeft = SimpleNode{
+					Uid:       uuid.New().String(),
+					Numerical: num2,
+					IsLeft:    true}
+			} else {
+				valnodeRight = SimpleNode{
+					Uid:        uuid.New().String(),
+					Expression: ele.RightVar,
+					IsLeft:     false,
+				}
+				valnodeLeft = SimpleNode{
+					Uid:        uuid.New().String(),
+					Expression: ele.LeftVar,
+					IsLeft:     true,
+				}
+			}
+			indKey := ContainsNode(allNode, keynode)
+			indValL := ContainsNode(allNode, valnodeLeft)
+			indValR := ContainsNode(allNode, valnodeRight)
+			if indKey > -1 {
+				keynode = allNode[indKey]
+			} else {
+				allNode = append(allNode, keynode)
+			}
+			if indValL > -1 {
+				valnodeLeft = allNode[indValL]
+			} else {
+				allNode = append(allNode, valnodeLeft)
+			}
+			if indValR > -1 {
+				valnodeRight = allNode[indValR]
+			} else {
+				allNode = append(allNode, valnodeRight)
+			}
+			adjList[keynode] = []SimpleNode{valnodeLeft, valnodeRight}
+		} else {
+			fmt.Printf("Exists LHS Exxpression: %s", key.Expression)
+		}
+	}
+	return adjList, allNode
+}
+
+func (e *Expression) ExtendExpression() {
 
 }
 
@@ -863,9 +976,12 @@ func main() {
 		Equations: []string{"c=a+b", "d=y/c", "e=a+d"},
 	}
 	d.generateEquationsList()
-	d.generateChildNode()
-	d.generateChildNode()
-	d.generateChildNode()
+	// d.generateChildNode()
+	// d.generateChildNode()
+	// d.generateChildNode()
+	fmt.Println(d)
+	ds, al := d.GenerateAdjList()
+	fmt.Println(ds, "tfesf", al)
 	fmt.Println(d.Graph)
 
 	sfs, _ := json.Marshal(d.Graph)

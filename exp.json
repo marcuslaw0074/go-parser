@@ -1,0 +1,29 @@
+{
+  "rightNode": {
+    "uid": "4",
+    "numerical": 0,
+    "expression": "j",
+    "origin": {
+      "rightNode": {
+        "uid": "2",
+        "numerical": 0,
+        "expression": "d",
+        "origin": null
+      },
+      "operation": "-",
+      "leftNode": {
+        "uid": "3",
+        "numerical": 0,
+        "expression": "H",
+        "origin": null
+      }
+    }
+  },
+  "operation": "/",
+  "leftNode": {
+    "uid": "5",
+    "numerical": 0,
+    "expression": "HAHA",
+    "origin": null
+  }
+}

@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"time"
+
 	// "io/ioutil"
 	// "math"
 	// "os"
@@ -17,7 +19,7 @@ import (
 )
 
 type Node struct {
-	Uid        string         `json:"uid"`
+	Uid        string      `json:"uid"`
 	Numerical  float64     `json:"numerical"`
 	Expression string      `json:"expression"`
 	Origin     *Expression `json:"origin"`
@@ -326,9 +328,20 @@ func findOperand(str string) []string {
 	return match
 }
 
+func findMapKeysSorted(s map[string]int) []string {
+	la := []string{}
+	for key := range s {
+		fmt.Println(key, s)
+		la = append(la, key)
+	}
+	sort.Strings(la)
+	return la
+}
+
 func findMapKeys(s map[string]int) []string {
 	la := []string{}
 	for key := range s {
+		fmt.Println(key, s)
 		la = append(la, key)
 	}
 	return la
@@ -429,19 +442,33 @@ func SubSliceFloat(s []int, ls []float64) []float64 {
 	return lss
 }
 
-func (e *Expression) MergeNode() (*Expression) {
+func findValuesByKeys(keys []string, mapping map[string]int) []int {
+	la := []int{}
+	for _, key := range keys {
+		fmt.Println(key)
+		for keyy, val := range mapping {
+			if key == keyy {
+				la = append(la, val)
+			}
+		}
+	}
+	return la
+}
+
+func (e *Expression) MergeNode() *Expression {
 	localMap := map[string]int{}
 	if e.LeftNode.Origin == nil {
 		localMap = e.RightNode.Origin.Mapping
 		exp := *e.RightNode.Origin
 		newMap := e.Mapping
-		delete(newMap, e.RightNode.Expression)
+		// delete(newMap, e.RightNode.Expression)
+		delete(newMap, e.RightNode.Uid)
 		originMap := []string{}
-		localMapKeys := findMapKeys(localMap)
+		localMapKeys := findMapKeysSorted(localMap)
 		for key := range newMap {
 			if strContains(localMapKeys, key) == -1 {
 				_, max := MinMax(findMapValues(localMap))
-				localMap[key] = max+1
+				localMap[key] = max + 1
 			} else {
 				originMap = append(originMap, key)
 			}
@@ -457,6 +484,68 @@ func (e *Expression) MergeNode() (*Expression) {
 		e.RightNode.Origin = nil
 		e.Mapping = localMap
 		return e
+	} else if e.RightNode.Origin == nil {
+		localMap = e.LeftNode.Origin.Mapping
+		exp := *e.LeftNode.Origin
+		newMap := e.Mapping
+		// delete(newMap, e.LeftNode.Expression)
+		delete(newMap, e.LeftNode.Uid)
+		originMap := []string{}
+		localMapKeys := findMapKeysSorted(localMap)
+		for key := range newMap {
+			if strContains(localMapKeys, key) == -1 {
+				_, max := MinMax(findMapValues(localMap))
+				localMap[key] = max + 1
+			} else {
+				originMap = append(originMap, key)
+			}
+		}
+		function := func(f ...float64) float64 {
+			fmt.Println(f, localMap)
+			if len(originMap) == 0 {
+				return e.LocalFunction(exp.Function(f[:len(f)-1]...), f[len(f)-1])
+			}
+			return e.LocalFunction(exp.Function(f[:len(f)-1]...), f[len(f)-1])
+		}
+		e.Function = function
+		e.LeftNode.Origin = nil
+		e.Mapping = localMap
+	} else {
+		localMapLeft := e.LeftNode.Origin.Mapping
+		expLeft := *e.LeftNode.Origin
+		localMapRight := e.RightNode.Origin.Mapping
+		expRight := *e.RightNode.Origin
+		originMap := []string{}
+		fmt.Println(localMapLeft)
+		localMapLeftKeys := findMapKeysSorted(localMapLeft)
+		localMapRightKeys := findMapKeysSorted(localMapRight)
+		fmt.Println(localMapLeftKeys, localMapRightKeys, "111")
+		sortedKeys := findMapKeysSorted(localMapRight)
+		for _, key := range sortedKeys {
+			if strContains(localMapLeftKeys, key) == -1 {
+				_, max := MinMax(findMapValues(localMapLeft))
+				localMapLeft[key] = max + 1
+			} else {
+				originMap = append(originMap, key)
+			}
+		}
+		fmt.Println(localMapLeft)
+		newRightValues := findValuesByKeys(localMapRightKeys, localMapLeft)
+		newLeftValues := findValuesByKeys(localMapLeftKeys, localMapLeft)
+		fmt.Println(newLeftValues, newRightValues)
+		fmt.Println(expLeft, expRight)
+		function := func(f ...float64) float64 {
+			fmt.Println(f, localMap)
+			fmt.Println(SubSliceFloat(newLeftValues, f), SubSliceFloat(newRightValues, f))
+			if len(originMap) == 0 {
+				return e.LocalFunction(expLeft.Function(SubSliceFloat(newLeftValues, f)...), expRight.Function(SubSliceFloat(newRightValues, f)...))
+			}
+			return e.LocalFunction(expLeft.Function(SubSliceFloat(newLeftValues, f)...), expRight.Function(SubSliceFloat(newRightValues, f)...))
+		}
+		e.Function = function
+		e.RightNode.Origin = nil
+		e.LeftNode.Origin = nil
+		e.Mapping = localMapLeft
 	}
 
 	return e
@@ -466,6 +555,62 @@ func main() {
 	// str := "example*jvdka"
 	// match, err := regexp.MatchString(`^[_a-zA-Z]\w* *[\*\+\-\/] *[_a-zA-Z]\w*`, str)
 	// fmt.Println("Match: ", match, " Error: ", err)
+
+	exx := &Expression{
+		RightNode: Node{
+			Uid:        "4",
+			Expression: "j",
+			Origin: &Expression{
+				RightNode: Node{
+					Uid:        "2",
+					Expression: "dd",
+				},
+				LeftNode: Node{
+					Uid:        "3",
+					Expression: "Hh",
+				},
+				Operation:     "-",
+				LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 - f2 },
+				Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] - f[1] },
+				Mapping:       map[string]int{"2": 0, "3": 1},
+			},
+		},
+		LeftNode: Node{
+			Uid:        "5",
+			Expression: "HAHA",
+			Origin: &Expression{
+				RightNode: Node{
+					Uid:        "2",
+					Expression: "dd",
+				},
+				LeftNode: Node{
+					Uid:        "1",
+					Expression: "H",
+				},
+				Operation:     "-",
+				LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 - f2 },
+				Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] - f[1] },
+				Mapping:       map[string]int{"2": 0, "1": 1},
+			},
+		},
+		Operation:     "/",
+		LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
+		Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] / f[1] },
+		Mapping:       map[string]int{"4": 0, "5": 1},
+	}
+
+	fff3 := *exx.MergeNode()
+	exx = &fff3
+	fmt.Println(fff3.Function([]float64{2, 5, 8}...))
+	fmt.Println(fff3.Mapping)
+	// fmt.Println(ex.RightNode.Origin.MergeNode().Mapping)
+	sss1, _ := json.Marshal(exx)
+	fmt.Println(string(sss1))
+	// fmt.Println(ex)
+	fmt.Println("")
+
+	time.Sleep(time.Hour)
+
 	ex := &Expression{
 		RightNode: Node{
 			Uid:        "4",
@@ -476,8 +621,7 @@ func main() {
 					Expression: "d",
 					Origin: &Expression{
 						RightNode: Node{
-							Uid:       "0",
-							// Numerical: 4.2,
+							Uid:        "0",
 							Expression: "fs",
 						},
 						LeftNode: Node{
@@ -485,9 +629,9 @@ func main() {
 							Expression: "Hgrfs",
 						},
 						Operation:     "*",
-						LocalFunction: func(f1, f2 float64) float64 { return f1 * f2 },
-						Function:      func(f ...float64) float64 {fmt.Println(f); return f[0] * f[1] },
-						Mapping:       map[string]int{"fs": 0, "Hgrfs": 1},
+						LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 * f2 },
+						Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] * f[1] },
+						Mapping:       map[string]int{"0": 0, "1": 1},
 					},
 				},
 				LeftNode: Node{
@@ -495,9 +639,9 @@ func main() {
 					Expression: "H",
 				},
 				Operation:     "-",
-				LocalFunction: func(f1, f2 float64) float64 {fmt.Println(f1, f2); return f1 - f2 },
-				Function:      func(f ...float64) float64 { return f[0] - f[1] },
-				Mapping:       map[string]int{"d": 0, "H": 1},
+				LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 - f2 },
+				Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] - f[1] },
+				Mapping:       map[string]int{"2": 0, "3": 1},
 			},
 		},
 		LeftNode: Node{
@@ -505,9 +649,9 @@ func main() {
 			Expression: "HAHA",
 		},
 		Operation:     "/",
-		LocalFunction: func(f1, f2 float64) float64 { return f1 / f2 },
-		Function:      func(f ...float64) float64 { return f[0] / f[1] },
-		Mapping:       map[string]int{"j": 0, "HAHA": 1},
+		LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
+		Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] / f[1] },
+		Mapping:       map[string]int{"4": 0, "5": 1},
 	}
 
 	// sss, _ := json.Marshal(*&ex.RightNode.Origin.MergeNode().Mapping)
@@ -516,7 +660,7 @@ func main() {
 	ex.RightNode.Origin = &fff
 	fff2 := *ex.MergeNode()
 	ex = &fff2
-	fmt.Println(fff2.Function([]float64{2, 5, 8, 8}...))
+	fmt.Println(fff2.Function([]float64{2, 5, 8, 12}...))
 	fmt.Println(fff)
 	// fmt.Println(ex.RightNode.Origin.MergeNode().Mapping)
 	sss, _ := json.Marshal(ex)
@@ -525,20 +669,6 @@ func main() {
 	fmt.Println("")
 
 	time.Sleep(time.Hour)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 	// sss, _ := json.Marshal(*ex.findSecondEndNode())
 	// fmt.Println(string(sss))
@@ -596,8 +726,8 @@ func main() {
 		}
 		gg = append(gg, f)
 		mm = append(mm, m)
-		for _, newKey := range findMapKeys(m) {
-			if strContains(findMapKeys(allM), newKey) == -1 {
+		for _, newKey := range findMapKeysSorted(m) {
+			if strContains(findMapKeysSorted(allM), newKey) == -1 {
 				fmt.Println(newKey)
 				v := findMapValues(allM)
 				if len(v) == 0 {

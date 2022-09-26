@@ -1,7 +1,9 @@
 package graph
+
 import (
-    "container/list"
-    "fmt"
+	"container/list"
+	"fmt"
+	"go-parser/tool"
 )
 
 type Graph struct{
@@ -79,4 +81,16 @@ func (g *Graph) DFS(start *Vertex){
             }
         }
     }
+}
+
+func Dfs(graph map[string][]string, start string, visited []string, vidList *[][]string) {
+    visited = append(visited, start)
+    for _, ele := range graph[start] {
+        if tool.StrContains(visited, ele) == -1 {
+            viss := make([]string, len(visited))
+            copy(viss, visited)
+            Dfs(graph, ele, viss, vidList)
+        }
+    }
+    *vidList = append(*vidList, visited)
 }

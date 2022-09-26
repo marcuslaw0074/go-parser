@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
+	"go-parser/graph"
 	"math"
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/google/uuid"
+
 	// "io/ioutil"
 	// "math"
 	// "os"
@@ -758,9 +761,12 @@ type Equation struct {
 }
 
 type EquationList struct {
-	Equations     []string    `json:"equations"`
-	Graph         *Expression `json:"graph"`
-	EquationsList []Equation  `json:"equationlist"`
+	Equations     []string                    `json:"equations"`
+	Graph         *Expression                 `json:"graph"`
+	EquationsList []Equation                  `json:"equationlist"`
+	AdjList       map[SimpleNode][]SimpleNode `json:"adjList"`
+	AllNode       []SimpleNode                `json:"allNode"`
+	StartNode     SimpleNode                  `json:"startNode"`
 }
 
 func reverse[S ~[]E, E any](s S) {
@@ -770,7 +776,6 @@ func reverse[S ~[]E, E any](s S) {
 }
 
 func (q *EquationList) generateEquationsList() {
-	reverse(q.Equations)
 	relation := "="
 	equationsList := make([]Equation, 0)
 	for _, ele := range q.Equations {
@@ -785,8 +790,16 @@ func (q *EquationList) generateEquationsList() {
 			Operation: operator,
 		})
 	}
-	q.EquationsList = equationsList
+	if q.EquationsList == nil {
+		q.EquationsList = equationsList
+	} else {
+		fmt.Println("Already generated EquationList!")
+	}
 
+}
+
+func (q *EquationList) reverseEquationsList() {
+	reverse(q.Equations)
 }
 
 func findAdjListKeys(m map[SimpleNode][]SimpleNode) []SimpleNode {
@@ -819,7 +832,7 @@ func ContainsNode(values []SimpleNode, node SimpleNode) int {
 	return -1
 }
 
-func (q *EquationList) GenerateAdjList() (map[SimpleNode][]SimpleNode, []SimpleNode) {
+func (q *EquationList) GenerateAdjList() {
 	q.generateEquationsList()
 	adjList := map[SimpleNode][]SimpleNode{}
 	allNode := []SimpleNode{}
@@ -872,11 +885,6 @@ func (q *EquationList) GenerateAdjList() (map[SimpleNode][]SimpleNode, []SimpleN
 			indKey := ContainsNode(allNode, keynode)
 			indValL := ContainsNode(allNode, valnodeLeft)
 			indValR := ContainsNode(allNode, valnodeRight)
-			if indKey > -1 {
-				keynode = allNode[indKey]
-			} else {
-				allNode = append(allNode, keynode)
-			}
 			if indValL > -1 {
 				valnodeLeft = allNode[indValL]
 			} else {
@@ -887,12 +895,393 @@ func (q *EquationList) GenerateAdjList() (map[SimpleNode][]SimpleNode, []SimpleN
 			} else {
 				allNode = append(allNode, valnodeRight)
 			}
+			if indKey > -1 {
+				keynode = allNode[indKey]
+			} else {
+				allNode = append(allNode, keynode)
+			}
 			adjList[keynode] = []SimpleNode{valnodeLeft, valnodeRight}
 		} else {
 			fmt.Printf("Exists LHS Exxpression: %s", key.Expression)
 		}
 	}
-	return adjList, allNode
+	q.AdjList = adjList
+	q.AllNode = allNode
+	q.StartNode = allNode[len(allNode)-1]
+}
+
+func findEquationEquationList(eqs []Equation, node SimpleNode) (Equation, error) {
+	for _, ele := range eqs {
+		fmt.Println(ele.LHS, node.Expression, "compare")
+		if ele.LHS == node.Expression {
+			return ele, nil
+		}
+	}
+	return Equation{}, errors.New("cannot find such equation")
+}
+
+func ContainsSimpleNode(ss []SimpleNode, s SimpleNode) int {
+	for ind, ele := range ss {
+		if ele == s {
+			return ind
+		}
+	}
+	return -1
+}
+
+func AdjDFS(adjList map[SimpleNode][]SimpleNode, startIndex SimpleNode, visited []SimpleNode, visitedList *[][]SimpleNode) {
+	visited = append(visited, startIndex)
+	for _, ele := range adjList[startIndex] {
+		if ContainsSimpleNode(visited, ele) == -1 {
+			viss := make([]SimpleNode, len(visited))
+			copy(viss, visited)
+			AdjDFS(adjList, ele, viss, visitedList)
+		}
+	}
+	*visitedList = append(*visitedList, visited)
+}
+
+func SortVisitedList(visitedList *[][]SimpleNode) {
+	vis := *visitedList
+	sort.Slice(*visitedList, func(i, j int) bool {
+		return len(vis[i]) < len(vis[j])
+	})
+}
+
+func (q *EquationList) GenerateExpression() *Expression {
+	start := q.StartNode
+	startEqu, err := findEquationEquationList(q.EquationsList, start)
+	if err != nil {
+		return nil
+	}
+	f1, f2 := findFunction(startEqu.Operation)
+	e := &Expression{
+		RightNode: Node{
+			Uid:        q.AdjList[start][1].Uid,
+			Expression: q.AdjList[start][1].Expression,
+			Numerical:  q.AdjList[start][1].Numerical,
+		},
+		LeftNode: Node{
+			Uid:        q.AdjList[start][0].Uid,
+			Expression: q.AdjList[start][0].Expression,
+			Numerical:  q.AdjList[start][0].Numerical,
+		},
+		Operation:       startEqu.Operation,
+		WholeExpression: startEqu.RHS,
+		Mapping:         map[string]int{q.AdjList[start][0].Uid: 0, q.AdjList[start][1].Uid: 1},
+		Function:        f1,
+		LocalFunction:   f2,
+	}
+	if q.AdjList != nil {
+		for {
+			allVisited := false
+			// visited := []SimpleNode{start}
+			// for key, val := range q.AdjList {
+			// 	if val.Expression ==
+			// }
+			if allVisited {
+				break
+			}
+		}
+	} else {
+		fmt.Println("AdjList is nil!")
+	}
+	return e
+}
+
+func nodePathtoList(nodePath []SimpleNode) []string {
+	ls := []string{}
+	for _, ele := range nodePath {
+		ls = append(ls, ele.Expression)
+	}
+	return ls
+}
+
+func (q *EquationList) AddChildNode(nodePath []SimpleNode) {
+	ex := q.Graph
+	// allNode := q.AllNode
+	// fmt.Println(q.EquationsList, "ALL")
+	fmt.Println("nodePathtoList", nodePathtoList(nodePath))
+	depth := len(nodePath)
+	for ind, ele := range nodePath {
+		// fmt.Println(ele.Expression, ele.IsLeft, "FDFDFD")
+		// fmt.Println("ind", ind)
+		if ind > depth-3 {
+			sfs, _ := json.Marshal(q.Graph)
+			fmt.Println(string(sfs), "before")
+			// sfs, _ = json.Marshal(ex)
+			// fmt.Println(string(sfs), "before2")
+			equa, _ := findEquationEquationList(q.EquationsList, nodePath[ind-1])
+			fmt.Println(equa, "equa", equa.LeftVar, equa.RightVar, ele.Expression, nodePath[ind-1].IsLeft)
+			if equa.LeftVar == ele.Expression {
+				if nodePath[ind-1].IsLeft {
+					// fmt.Println(ex.LeftNode.Origin, ele.Expression)
+					if ex.LeftNode.Expression == ele.Expression {
+						// fmt.Println(ex.LeftNode.Expression, ele.Expression, "CONT")
+						continue
+					}
+					if ex.LeftNode.Origin == nil {
+						ex.LeftNode.Origin = &Expression{
+							LeftNode: Node{
+								Uid:        ele.Uid,
+								Expression: ele.Expression,
+								Numerical:  ele.Numerical,
+							},
+							Operation:       equa.Operation,
+							WholeExpression: equa.RHS,
+						}
+					} else {
+						// if ex.LeftNode.Expression == ele.Expression {
+						// 	ex = ex.LeftNode.Origin
+						// 	fmt.Println("CONS")
+						// 	continue
+						// }
+						ori := nodePath[len(nodePath)-2]
+						// fmt.Println(ori, "gjrsgad")
+						oriEqu, err := findEquationEquationList(q.EquationsList, ori)
+						// fmt.Println(oriEqu, 5454)
+						if err != nil {
+							// fmt.Println("errorssss")
+							return
+						}
+						f1, f2 := findFunction(oriEqu.Operation)
+						r := ex.LeftNode.Origin
+						// fmt.Println(r, "grs")
+						if r.LeftNode.Uid == ele.Uid {
+							ex = ex.RightNode.Origin
+							continue
+						}
+						ex.LeftNode.Origin = &Expression{
+							LeftNode: Node{
+								Uid:        ele.Uid,
+								Expression: ele.Expression,
+								Numerical:  ele.Numerical,
+							},
+							RightNode: Node{
+								Uid:        r.RightNode.Uid,
+								Expression: r.RightNode.Expression,
+								Numerical:  r.RightNode.Numerical,
+							},
+							Operation:       r.Operation,
+							WholeExpression: equa.RHS,
+							Mapping:         map[string]int{ele.Uid: 0, r.RightNode.Uid: 1},
+							Function:        f1,
+							LocalFunction:   f2,
+						}
+					}
+					ex = ex.LeftNode.Origin
+				} else {
+					if ex.RightNode.Expression == ele.Expression {
+						// fmt.Println(ex.RightNode.Expression, ele.Expression, "CONT")
+						continue
+					}
+					if ex.RightNode.Origin == nil {
+						ex.RightNode.Origin = &Expression{
+							LeftNode: Node{
+								Uid:        ele.Uid,
+								Expression: ele.Expression,
+								Numerical:  ele.Numerical,
+							},
+							Operation:       equa.Operation,
+							WholeExpression: equa.RHS,
+						}
+					} else {
+						// if ex.RightNode.Expression == ele.Expression {
+						// 	fmt.Println("CONS")
+						// 	ex = ex.RightNode.Origin
+						// 	continue
+						// }
+						ori := nodePath[len(nodePath)-2]
+						// fmt.Println(ori, "gjrsgad")
+						oriEqu, err := findEquationEquationList(q.EquationsList, ori)
+						// fmt.Println(oriEqu, 5454)
+						if err != nil {
+							// fmt.Println("errorssss")
+							return
+						}
+						f1, f2 := findFunction(oriEqu.Operation)
+						r := ex.RightNode.Origin
+						// fmt.Println(r, "grs", equa.RHS)
+						if r.LeftNode.Uid == ele.Uid {
+							ex = ex.RightNode.Origin
+							continue
+						}
+						ex.RightNode.Origin = &Expression{
+							LeftNode: Node{
+								Uid:        ele.Uid,
+								Expression: ele.Expression,
+								Numerical:  ele.Numerical,
+							},
+							RightNode: Node{
+								Uid:        r.LeftNode.Uid,
+								Expression: r.LeftNode.Expression,
+								Numerical:  r.LeftNode.Numerical,
+							},
+							Operation:       equa.Operation,
+							WholeExpression: equa.RHS,
+							Mapping:         map[string]int{ele.Uid: 1, r.LeftNode.Uid: 0},
+							Function:        f1,
+							LocalFunction:   f2,
+						}
+					}
+					ex = ex.RightNode.Origin
+				}
+			} else if equa.RightVar == ele.Expression {
+				if nodePath[ind-1].IsLeft {
+					// fmt.Println(ex.LeftNode.Origin, ele.Expression)
+					if ex.LeftNode.Expression == ele.Expression {
+						// fmt.Println(ex.LeftNode.Expression, ele.Expression, "CONT")
+						continue
+					}
+					if ex.LeftNode.Origin == nil {
+						ex.LeftNode.Origin = &Expression{
+							LeftNode: Node{
+								Uid:        ele.Uid,
+								Expression: ele.Expression,
+								Numerical:  ele.Numerical,
+							},
+						}
+					} else {
+						// if ex.LeftNode.Expression == ele.Expression {
+						// 	ex = ex.LeftNode.Origin
+						// 	fmt.Println("CONS")
+						// 	continue
+						// }
+						ori := nodePath[len(nodePath)-2]
+						// fmt.Println(ori, "gjrsgad")
+						oriEqu, err := findEquationEquationList(q.EquationsList, ori)
+						// fmt.Println(oriEqu, 5454)
+						if err != nil {
+							// fmt.Println("errorssss")
+							return
+						}
+						f1, f2 := findFunction(oriEqu.Operation)
+						r := ex.LeftNode.Origin
+						// fmt.Println(r, "grs")
+						if r.LeftNode.Uid == ele.Uid {
+							ex = ex.RightNode.Origin
+							continue
+						}
+						ex.LeftNode.Origin = &Expression{
+							LeftNode: Node{
+								Uid:        ele.Uid,
+								Expression: ele.Expression,
+								Numerical:  ele.Numerical,
+							},
+							RightNode: Node{
+								Uid:        r.RightNode.Uid,
+								Expression: r.RightNode.Expression,
+								Numerical:  r.RightNode.Numerical,
+							},
+							Operation:       r.Operation,
+							WholeExpression: equa.RHS,
+							Mapping:         map[string]int{ele.Uid: 0, r.RightNode.Uid: 1},
+							Function:        f1,
+							LocalFunction:   f2,
+						}
+					}
+					ex = ex.LeftNode.Origin
+				} else {
+					fmt.Println(ex.RightNode.Expression, ele.Expression)
+					if ex.RightNode.Expression == ele.Expression {
+						// fmt.Println(ex.RightNode.Expression, ele.Expression, "CONT")
+						continue
+					}
+					if ex.RightNode.Origin == nil {
+						ex.RightNode.Origin = &Expression{
+							RightNode: Node{
+								Uid:        ele.Uid,
+								Expression: ele.Expression,
+								Numerical:  ele.Numerical,
+							},
+						}
+					} else {
+						fmt.Println(ex.RightNode.Expression, ele.Expression, "final")
+						// if ex.RightNode.Expression == ele.Expression {
+						// 	fmt.Println("CONS")
+						// 	ex = ex.RightNode.Origin
+						// 	continue
+						// }
+						ori := nodePath[len(nodePath)-2]
+						// fmt.Println(ori, "gjrsgad")
+						oriEqu, err := findEquationEquationList(q.EquationsList, ori)
+						// fmt.Println(oriEqu, 5454)
+						if err != nil {
+							// fmt.Println("errorssss")
+							return
+						}
+						f1, f2 := findFunction(oriEqu.Operation)
+						r := ex.RightNode.Origin
+						fmt.Println(r.RightNode.Expression, r.LeftNode.Expression, "gfgf", ele.Expression)
+						if r.RightNode.Uid == ele.Uid {
+							ex = ex.RightNode.Origin
+							continue
+						}
+						fmt.Println(r, "grrrrs", equa.RHS)
+						ex.RightNode.Origin = &Expression{
+							RightNode: Node{
+								Uid:        ele.Uid,
+								Expression: ele.Expression,
+								Numerical:  ele.Numerical,
+							},
+							LeftNode: Node{
+								Uid:        r.LeftNode.Uid,
+								Expression: r.LeftNode.Expression,
+								Numerical:  r.LeftNode.Numerical,
+							},
+							Operation:       r.Operation,
+							WholeExpression: equa.RHS,
+							Mapping:         map[string]int{ele.Uid: 1, r.LeftNode.Uid: 0},
+							Function:        f1,
+							LocalFunction:   f2,
+						}
+					}
+					ex = ex.RightNode.Origin
+					sfs, _ = json.Marshal(ex)
+					fmt.Println(string(sfs), "after2")
+				}
+			}
+			sfs, _ = json.Marshal(q.Graph)
+			fmt.Println(string(sfs), "after")
+			// sfs, _ = json.Marshal(ex)
+			// fmt.Println(string(sfs), "after2")
+		} else {
+
+		}
+	}
+}
+
+func (q *EquationList) GenerateExpressionNew() {
+	visitedList := [][]SimpleNode{}
+	start := q.StartNode
+	startEqu, err := findEquationEquationList(q.EquationsList, start)
+	if err != nil {
+		return
+	}
+	f1, f2 := findFunction(startEqu.Operation)
+	q.Graph = &Expression{
+		RightNode: Node{
+			Uid:        q.AdjList[start][1].Uid,
+			Expression: q.AdjList[start][1].Expression,
+			Numerical:  q.AdjList[start][1].Numerical,
+		},
+		LeftNode: Node{
+			Uid:        q.AdjList[start][0].Uid,
+			Expression: q.AdjList[start][0].Expression,
+			Numerical:  q.AdjList[start][0].Numerical,
+		},
+		Operation:       startEqu.Operation,
+		WholeExpression: startEqu.RHS,
+		Mapping:         map[string]int{q.AdjList[start][0].Uid: 0, q.AdjList[start][1].Uid: 1},
+		Function:        f1,
+		LocalFunction:   f2,
+	}
+	AdjDFS(q.AdjList, q.StartNode, []SimpleNode{}, &visitedList)
+	SortVisitedList(&visitedList)
+	fmt.Println(visitedList[3:], "ghearihj")
+	for _, ele := range visitedList[3:] {
+		q.AddChildNode(ele)
+	}
 }
 
 func (e *Expression) ExtendExpression() {
@@ -947,7 +1336,6 @@ func (q *EquationList) generateChildNode() error {
 func (q *EquationList) generateGraph() {
 	// ls := q.EquationsList
 	// e := &Expression{
-
 	// }
 	// for ind, ele := range ls {
 	// 	for _, el := range ls[ind:] {
@@ -965,6 +1353,15 @@ func main() {
 
 	resss, _ := matchNodesOperation("543.543+bndsfk")
 
+	exm := map[string][]string{
+		"e": {"a", "d"},
+		"d": {"y", "c"},
+		"c": {"a", "b"},
+	}
+	gj := make([][]string, 0)
+	graph.Dfs(exm, "e", []string{}, &gj)
+	fmt.Println(gj)
+
 	// sfs, _ := json.Marshal(resss)
 	// fmt.Println(string(sfs))
 
@@ -976,17 +1373,34 @@ func main() {
 		Equations: []string{"c=a+b", "d=y/c", "e=a+d"},
 	}
 	d.generateEquationsList()
+	fmt.Println(d.EquationsList, "EquationsList")
 	// d.generateChildNode()
 	// d.generateChildNode()
 	// d.generateChildNode()
 	fmt.Println(d)
-	ds, al := d.GenerateAdjList()
-	fmt.Println(ds, "tfesf", al)
-	fmt.Println(d.Graph)
-
+	d.GenerateAdjList()
+	d.GenerateExpressionNew()
 	sfs, _ := json.Marshal(d.Graph)
 	fmt.Println(string(sfs))
 
+	time.Sleep(time.Hour)
+	fmt.Println(d.AdjList, "\n", d.AllNode)
+	visitedList := [][]SimpleNode{}
+	AdjDFS(d.AdjList, d.StartNode, []SimpleNode{}, &visitedList)
+	SortVisitedList(&visitedList)
+	fmt.Println(visitedList)
+
+	// sfs, _ := json.Marshal(d.Graph)
+	// fmt.Println(string(sfs))
+
+	// exm := map[string][]string{
+	// 	"e": {"a", "d"},
+	// 	"d": {"y", "c"},
+	// 	"c": {"a", "b"},
+	// }
+	// fmt.Println(exm)
+
+	time.Sleep(time.Hour)
 	// str := "example*jvdka"
 	// match, err := regexp.MatchString(`^[_a-zA-Z]\w* *[\*\+\-\/] *[_a-zA-Z]\w*`, str)
 	// fmt.Println("Match: ", match, " Error: ", err)
@@ -1010,8 +1424,8 @@ func main() {
 	// 					},
 	// 					Operation:     "-",
 	// 					WholeExpression: "b-a",
-	// 					LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 - f2 },
-	// 					Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] - f[1] },
+	// 					LocalFunction: func(f1, f2 float64) float64 {  return f1 - f2 },
+	// 					Function:      func(f ...float64) float64 {  return f[0] - f[1] },
 	// 					Mapping:       map[string]int{"0": 1, "1": 0},
 	// 				},
 	// 			},
@@ -1029,15 +1443,15 @@ func main() {
 	// 					},
 	// 					Operation:     "+",
 	// 					WholeExpression: "a+b",
-	// 					LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 + f2 },
-	// 					Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] + f[1] },
+	// 					LocalFunction: func(f1, f2 float64) float64 {  return f1 + f2 },
+	// 					Function:      func(f ...float64) float64 {  return f[0] + f[1] },
 	// 					Mapping:       map[string]int{"0": 0, "1": 1},
 	// 				},
 	// 			},
 	// 			Operation:     "/",
 	// 			WholeExpression: "f/e",
-	// 			LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
-	// 			Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] / f[1] },
+	// 			LocalFunction: func(f1, f2 float64) float64 {  return f1 / f2 },
+	// 			Function:      func(f ...float64) float64 {  return f[0] / f[1] },
 	// 			Mapping:       map[string]int{"2": 1, "3": 0},
 	// 		},
 	// 	},
@@ -1047,8 +1461,8 @@ func main() {
 	// 	},
 	// 	Operation:       "/",
 	// 	WholeExpression: "g/f",
-	// 	LocalFunction:   func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
-	// 	Function:        func(f ...float64) float64 { fmt.Println(f); return f[0] / f[1] },
+	// 	LocalFunction:   func(f1, f2 float64) float64 {  return f1 / f2 },
+	// 	Function:        func(f ...float64) float64 {  return f[0] / f[1] },
 	// 	Mapping:         map[string]int{"4": 1, "5": 0},
 	// }
 
@@ -1071,8 +1485,8 @@ func main() {
 						},
 						Operation:       "/",
 						WholeExpression: "b/a",
-						LocalFunction:   func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
-						Function:        func(f ...float64) float64 { fmt.Println(f); return f[0] / f[1] },
+						LocalFunction:   func(f1, f2 float64) float64 { return f1 / f2 },
+						Function:        func(f ...float64) float64 { return f[0] / f[1] },
 						Mapping:         map[string]int{"0": 1, "1": 0},
 					},
 				},
@@ -1094,8 +1508,8 @@ func main() {
 								},
 								Operation:       "/",
 								WholeExpression: "a/b",
-								LocalFunction:   func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
-								Function:        func(f ...float64) float64 { fmt.Println(f, f[0]/f[1]); return f[0] / f[1] },
+								LocalFunction:   func(f1, f2 float64) float64 { return f1 / f2 },
+								Function:        func(f ...float64) float64 { return f[0] / f[1] },
 								Mapping:         map[string]int{"1": 1, "0": 0},
 							},
 						},
@@ -1113,22 +1527,22 @@ func main() {
 								},
 								Operation:       "+",
 								WholeExpression: "a+b",
-								LocalFunction:   func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 + f2 },
-								Function:        func(f ...float64) float64 { fmt.Println(f, f[0]+f[1]); return f[0] + f[1] },
+								LocalFunction:   func(f1, f2 float64) float64 { return f1 + f2 },
+								Function:        func(f ...float64) float64 { return f[0] + f[1] },
 								Mapping:         map[string]int{"1": 1, "0": 0},
 							},
 						},
 						Operation:       "*",
 						WholeExpression: "k*j",
-						LocalFunction:   func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 * f2 },
-						Function:        func(f ...float64) float64 { fmt.Println(f); return f[0] * f[1] },
+						LocalFunction:   func(f1, f2 float64) float64 { return f1 * f2 },
+						Function:        func(f ...float64) float64 { return f[0] * f[1] },
 						Mapping:         map[string]int{"8": 1, "9": 0},
 					},
 				},
 				Operation:       "-",
 				WholeExpression: "d-c",
-				LocalFunction:   func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 - f2 },
-				Function:        func(f ...float64) float64 { fmt.Println(f); return f[0] - f[1] },
+				LocalFunction:   func(f1, f2 float64) float64 { return f1 - f2 },
+				Function:        func(f ...float64) float64 { return f[0] - f[1] },
 				Mapping:         map[string]int{"2": 1, "3": 0},
 			},
 		},
@@ -1150,8 +1564,8 @@ func main() {
 						},
 						Operation:       "*",
 						WholeExpression: "b*a",
-						LocalFunction:   func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 * f2 },
-						Function:        func(f ...float64) float64 { fmt.Println(f); return f[0] * f[1] },
+						LocalFunction:   func(f1, f2 float64) float64 { return f1 * f2 },
+						Function:        func(f ...float64) float64 { return f[0] * f[1] },
 						Mapping:         map[string]int{"0": 1, "1": 0},
 					},
 				},
@@ -1161,15 +1575,15 @@ func main() {
 				},
 				Operation:       "+",
 				WholeExpression: "h+c",
-				LocalFunction:   func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 + f2 },
-				Function:        func(f ...float64) float64 { fmt.Println(f); return f[0] + f[1] },
+				LocalFunction:   func(f1, f2 float64) float64 { return f1 + f2 },
+				Function:        func(f ...float64) float64 { return f[0] + f[1] },
 				Mapping:         map[string]int{"2": 1, "7": 0},
 			},
 		},
 		Operation:       "/",
 		WholeExpression: "f/e",
-		LocalFunction:   func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
-		Function:        func(f ...float64) float64 { fmt.Println(f); return f[0] / f[1] },
+		LocalFunction:   func(f1, f2 float64) float64 { return f1 / f2 },
+		Function:        func(f ...float64) float64 { return f[0] / f[1] },
 		Mapping:         map[string]int{"4": 1, "5": 0},
 	}
 
@@ -1204,8 +1618,8 @@ func main() {
 					Expression: "Hh",
 				},
 				Operation:     "-",
-				LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 - f2 },
-				Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] - f[1] },
+				LocalFunction: func(f1, f2 float64) float64 { return f1 - f2 },
+				Function:      func(f ...float64) float64 { return f[0] - f[1] },
 				Mapping:       map[string]int{"2": 0, "3": 1},
 			},
 		},
@@ -1222,14 +1636,14 @@ func main() {
 					Expression: "H",
 				},
 				Operation:     "-",
-				LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 - f2 },
-				Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] - f[1] },
+				LocalFunction: func(f1, f2 float64) float64 { return f1 - f2 },
+				Function:      func(f ...float64) float64 { return f[0] - f[1] },
 				Mapping:       map[string]int{"2": 0, "1": 1},
 			},
 		},
 		Operation:     "/",
-		LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
-		Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] / f[1] },
+		LocalFunction: func(f1, f2 float64) float64 { return f1 / f2 },
+		Function:      func(f ...float64) float64 { return f[0] / f[1] },
 		Mapping:       map[string]int{"4": 0, "2": 1},
 	}
 
@@ -1263,8 +1677,8 @@ func main() {
 							Expression: "Hgrfs",
 						},
 						Operation:     "*",
-						LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 * f2 },
-						Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] * f[1] },
+						LocalFunction: func(f1, f2 float64) float64 { return f1 * f2 },
+						Function:      func(f ...float64) float64 { return f[0] * f[1] },
 						Mapping:       map[string]int{"0": 0, "1": 1},
 					},
 				},
@@ -1273,8 +1687,8 @@ func main() {
 					Expression: "H",
 				},
 				Operation:     "-",
-				LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 - f2 },
-				Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] - f[1] },
+				LocalFunction: func(f1, f2 float64) float64 { return f1 - f2 },
+				Function:      func(f ...float64) float64 { return f[0] - f[1] },
 				Mapping:       map[string]int{"2": 0, "3": 1},
 			},
 		},
@@ -1283,8 +1697,8 @@ func main() {
 			Expression: "HAHA",
 		},
 		Operation:     "/",
-		LocalFunction: func(f1, f2 float64) float64 { fmt.Println(f1, f2); return f1 / f2 },
-		Function:      func(f ...float64) float64 { fmt.Println(f); return f[0] / f[1] },
+		LocalFunction: func(f1, f2 float64) float64 { return f1 / f2 },
+		Function:      func(f ...float64) float64 { return f[0] / f[1] },
 		Mapping:       map[string]int{"4": 0, "5": 1},
 	}
 

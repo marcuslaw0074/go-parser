@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"github.com/google/uuid"
-	gen "go-parser/functiongenerator"
+	// gen "go-parser/functiongenerator"
 )
 
 type Node struct {
@@ -1011,25 +1011,21 @@ func CheckDuplicateVar(s []Equation) bool {
 
 func main() {
 
-	fmt.Println(CheckDuplicate([]string{"1", "2", "3", "3"}))
+	// f, m, _ := gen.Generator([]string{"c=b+a", "d=y/c", "e=a+d", "f=e+d"})
+	// fmt.Println(f([]float64{1, 2, 3}...), m)
 
-	f, m, _ := gen.Generator([]string{"c=b+a", "d=y/c", "e=a+d", "f=e+d"})
-	fmt.Println(f([]float64{1, 2, 3}...), m)
-
-
-
-	// d := EquationList{
-	// 	Equations: []string{"c=b+a", "d=y/c", "e=a+d", "f=e+d", "f=f/c"},
-	// }
-	// d.generateEquationsList()
-	// fmt.Println(d.EquationsList, "EquationsList")
-	// fmt.Println(CheckDuplicateVar(d.EquationsList), "gbksea")
-	// fmt.Println(d)
-	// d.GenerateAdjList()
-	// exxe := &Expression{}
-	// d.GenerateNew(exxe)
-	// ffff, mmm := exxe.GenerateFunctionMap()
-	// fmt.Println(ffff([]float64{1, 2, 3}...), mmm)
+	d := EquationList{
+		Equations: []string{"c=b+a", "d=y/c", "e=a+d", "f=e+d"},
+	}
+	d.generateEquationsList()
+	fmt.Println(d.EquationsList, "EquationsList")
+	fmt.Println(CheckDuplicateVar(d.EquationsList), "gbksea")
+	fmt.Println(d)
+	d.GenerateAdjList()
+	exxe := &Expression{}
+	d.GenerateNew(exxe)
+	ffff, mmm := exxe.GenerateFunctionMap()
+	fmt.Println(ffff([]float64{1, 2, 3}...), mmm)
 	// sfs, _ := json.Marshal(exxe)
 	// fmt.Println(string(sfs))
 

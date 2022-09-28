@@ -231,11 +231,8 @@ func findEquationEquationList(eqs []Equation, node SimpleNode) (Equation, error)
 }
 
 func (q *EquationList) AddChildNode(ex *parser.Expression, nodePath []SimpleNode) *parser.Expression {
-	ssss := nodePathtoList(nodePath)
-	fmt.Println("nodePathtoList", ssss)
 	r := ex
 	for ind, ele := range nodePath {
-		fmt.Println(ex, "INITIAL")
 		if len(r.LeftNode.Uid) == 0 && len(r.RightNode.Uid) == 0 {
 			start := q.StartNode
 			startEqu, err := findEquationEquationList(q.EquationsList, start)
@@ -335,10 +332,8 @@ func (q *EquationList) GenerateExpression(ex *parser.Expression) *parser.Express
 	visitedList := [][]SimpleNode{}
 	AdjDFS(q.AdjList, q.StartNode, []SimpleNode{}, &visitedList)
 	SortVisitedList(&visitedList)
-	for ind, ele := range visitedList {
+	for _, ele := range visitedList {
 		q.AddChildNode(ex, ele)
-		sfs, _ := json.Marshal(ex)
-		fmt.Println(string(sfs), ind, "result")
 	}
 	return ex
 }
@@ -355,6 +350,18 @@ func checkDuplicateVar(s []Equation) bool {
 	return false
 }
 
+func (q *EquationList) uidToExpression(m map[string]int) map[string]int {
+	mm := make(map[string]int)
+	for _, ele := range q.AllNode {
+		for key, val := range m {
+			if key==ele.Uid {
+				mm[ele.Expression]=val
+			}
+		}
+	}
+	return mm
+}
+
 func Generator(equLs []string) (func(...float64) float64, map[string]int, error) {
 	d := EquationList{
 		Equations: equLs,
@@ -368,8 +375,7 @@ func Generator(equLs []string) (func(...float64) float64, map[string]int, error)
 	exxe := &parser.Expression{}
 	d.GenerateExpression(exxe)
 	sfs, _ := json.Marshal(exxe)
-	fmt.Println(string(sfs), "resresres")
+	fmt.Println("json: ", string(sfs))
 	functions, mapping := exxe.GenerateFunctionMap()
-	fmt.Println(functions([]float64{1,2,3,4,5}...), "gfea")
-	return functions, mapping, nil
+	return functions, d.uidToExpression(mapping), nil
 }

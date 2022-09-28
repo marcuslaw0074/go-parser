@@ -832,6 +832,19 @@ func ContainsNode(values []SimpleNode, node SimpleNode) int {
 	return -1
 }
 
+func ContainsNodeStrict(values []SimpleNode, node SimpleNode) int {
+	for ind, ele := range values {
+		if len(node.Expression) > 0 {
+			if ele.Expression == node.Expression && ele.IsLeft == node.IsLeft {
+				return ind
+			}
+		} else if ele.Numerical == node.Numerical && ele.IsLeft == node.IsLeft {
+			return ind
+		}
+	}
+	return -1
+}
+
 func (q *EquationList) GenerateAdjList() {
 	q.generateEquationsList()
 	adjList := map[SimpleNode][]SimpleNode{}
@@ -840,7 +853,7 @@ func (q *EquationList) GenerateAdjList() {
 		keys := findAdjListKeys(adjList)
 		key, err := matchAdjListKeys(keys, ele.LHS)
 		if err != nil {
-			fmt.Println("cannot find corresponding keys")
+			// fmt.Println("cannot find corresponding keys")
 			num1, err1 := strconv.ParseFloat(ele.RightVar, 64)
 			num2, err2 := strconv.ParseFloat(ele.LeftVar, 64)
 			keynode := SimpleNode{
@@ -912,7 +925,7 @@ func (q *EquationList) GenerateAdjList() {
 
 func findEquationEquationList(eqs []Equation, node SimpleNode) (Equation, error) {
 	for _, ele := range eqs {
-		fmt.Println(ele.LHS, node.Expression, "compare")
+		// fmt.Println(ele.LHS, node.Expression, "compare")
 		if ele.LHS == node.Expression {
 			return ele, nil
 		}
@@ -997,258 +1010,376 @@ func nodePathtoList(nodePath []SimpleNode) []string {
 	return ls
 }
 
+func CompareSlice(s []string, s2 []string) bool {
+	if len(s) != len(s2) {
+		return false
+	}
+	for ind, ele := range s {
+		if ele != s2[ind] {
+			return false
+		}
+	}
+	return true
+}
+
 func (q *EquationList) AddChildNode(nodePath []SimpleNode) {
 	ex := q.Graph
 	// allNode := q.AllNode
 	// fmt.Println(q.EquationsList, "ALL")
-	fmt.Println("nodePathtoList", nodePathtoList(nodePath))
-	depth := len(nodePath)
-	for ind, ele := range nodePath {
+	ssss := nodePathtoList(nodePath)
+	fmt.Println("nodePathtoList", ssss)
+	// depth := len(nodePath)
+	for ind, ele := range nodePath[2:] {
 		// fmt.Println(ele.Expression, ele.IsLeft, "FDFDFD")
 		// fmt.Println("ind", ind)
-		if ind > depth-3 {
-			sfs, _ := json.Marshal(q.Graph)
-			fmt.Println(string(sfs), "before")
-			// sfs, _ = json.Marshal(ex)
-			// fmt.Println(string(sfs), "before2")
-			equa, _ := findEquationEquationList(q.EquationsList, nodePath[ind-1])
-			fmt.Println(equa, "equa", equa.LeftVar, equa.RightVar, ele.Expression, nodePath[ind-1].IsLeft)
-			if equa.LeftVar == ele.Expression {
-				if nodePath[ind-1].IsLeft {
-					// fmt.Println(ex.LeftNode.Origin, ele.Expression)
-					if ex.LeftNode.Expression == ele.Expression {
-						// fmt.Println(ex.LeftNode.Expression, ele.Expression, "CONT")
-						continue
+		ind++
+		sfs, _ := json.Marshal(q.Graph)
+		fmt.Println(string(sfs), "before")
+		if CompareSlice(ssss, []string{"f", "e", "d", "c"}) {
+			fmt.Println("bfsdbfefore")
+		}
+		equaOld, _ := findEquationEquationList(q.EquationsList, nodePath[ind-1])
+		equa, _ := findEquationEquationList(q.EquationsList, nodePath[ind])
+		fmt.Println(equa, equaOld, "equa", equa.LeftVar, equa.RightVar, ele.Expression, nodePath[ind].IsLeft)
+		fmt.Println("TESTTT", equa.LeftVar, equa.RightVar, ele.Expression, equa.LHS, equaOld.RightVar, equaOld.LeftVar, equa.LeftVar == ele.Expression, equa.LHS == equaOld.RightVar)
+		if equa.LeftVar == ele.Expression {
+			if equa.LHS == equaOld.LeftVar {
+				// fmt.Println(ex.LeftNode.Expression, ele.Expression)
+				// if ex.LeftNode.Expression == ele.Expression {
+				// 	fmt.Println(ex.LeftNode.Expression, ele.Expression)
+				// 	ex = ex.LeftNode.Origin
+				// 	continue
+				// }
+				if ex.LeftNode.Origin == nil {
+					ex.LeftNode.Origin = &Expression{
+						LeftNode: Node{
+							Uid:        ele.Uid,
+							Expression: ele.Expression,
+							Numerical:  ele.Numerical,
+						},
+						Operation:       equa.Operation,
+						WholeExpression: equa.RHS,
 					}
-					if ex.LeftNode.Origin == nil {
-						ex.LeftNode.Origin = &Expression{
-							LeftNode: Node{
-								Uid:        ele.Uid,
-								Expression: ele.Expression,
-								Numerical:  ele.Numerical,
-							},
-							Operation:       equa.Operation,
-							WholeExpression: equa.RHS,
-						}
-					} else {
-						// if ex.LeftNode.Expression == ele.Expression {
-						// 	ex = ex.LeftNode.Origin
-						// 	fmt.Println("CONS")
-						// 	continue
-						// }
-						ori := nodePath[len(nodePath)-2]
-						// fmt.Println(ori, "gjrsgad")
-						oriEqu, err := findEquationEquationList(q.EquationsList, ori)
-						// fmt.Println(oriEqu, 5454)
-						if err != nil {
-							// fmt.Println("errorssss")
-							return
-						}
-						f1, f2 := findFunction(oriEqu.Operation)
-						r := ex.LeftNode.Origin
-						// fmt.Println(r, "grs")
-						if r.LeftNode.Uid == ele.Uid {
-							ex = ex.RightNode.Origin
-							continue
-						}
-						ex.LeftNode.Origin = &Expression{
-							LeftNode: Node{
-								Uid:        ele.Uid,
-								Expression: ele.Expression,
-								Numerical:  ele.Numerical,
-							},
-							RightNode: Node{
-								Uid:        r.RightNode.Uid,
-								Expression: r.RightNode.Expression,
-								Numerical:  r.RightNode.Numerical,
-							},
-							Operation:       r.Operation,
-							WholeExpression: equa.RHS,
-							Mapping:         map[string]int{ele.Uid: 0, r.RightNode.Uid: 1},
-							Function:        f1,
-							LocalFunction:   f2,
-						}
-					}
-					ex = ex.LeftNode.Origin
 				} else {
-					if ex.RightNode.Expression == ele.Expression {
-						// fmt.Println(ex.RightNode.Expression, ele.Expression, "CONT")
+					// if ex.LeftNode.Expression == ele.Expression {
+					// 	ex = ex.LeftNode.Origin
+					// 	fmt.Println("CONS")
+					// 	continue
+					// }
+					ori := nodePath[len(nodePath)-2]
+					// fmt.Println(ori, "gjrsgad")
+					oriEqu, err := findEquationEquationList(q.EquationsList, ori)
+					// fmt.Println(oriEqu, 5454)
+					if err != nil {
+						// fmt.Println("errorssss")
+						return
+					}
+					f1, f2 := findFunction(oriEqu.Operation)
+					r := ex.LeftNode.Origin
+					// fmt.Println(r, "grs")
+					if r.LeftNode.Uid == ele.Uid {
+						ex = ex.RightNode.Origin
 						continue
 					}
-					if ex.RightNode.Origin == nil {
-						ex.RightNode.Origin = &Expression{
-							LeftNode: Node{
-								Uid:        ele.Uid,
-								Expression: ele.Expression,
-								Numerical:  ele.Numerical,
-							},
-							Operation:       equa.Operation,
-							WholeExpression: equa.RHS,
-						}
-					} else {
-						// if ex.RightNode.Expression == ele.Expression {
-						// 	fmt.Println("CONS")
-						// 	ex = ex.RightNode.Origin
-						// 	continue
-						// }
-						ori := nodePath[len(nodePath)-2]
-						// fmt.Println(ori, "gjrsgad")
-						oriEqu, err := findEquationEquationList(q.EquationsList, ori)
-						// fmt.Println(oriEqu, 5454)
-						if err != nil {
-							// fmt.Println("errorssss")
-							return
-						}
-						f1, f2 := findFunction(oriEqu.Operation)
-						r := ex.RightNode.Origin
-						// fmt.Println(r, "grs", equa.RHS)
-						if r.LeftNode.Uid == ele.Uid {
-							ex = ex.RightNode.Origin
-							continue
-						}
-						ex.RightNode.Origin = &Expression{
-							LeftNode: Node{
-								Uid:        ele.Uid,
-								Expression: ele.Expression,
-								Numerical:  ele.Numerical,
-							},
-							RightNode: Node{
-								Uid:        r.LeftNode.Uid,
-								Expression: r.LeftNode.Expression,
-								Numerical:  r.LeftNode.Numerical,
-							},
-							Operation:       equa.Operation,
-							WholeExpression: equa.RHS,
-							Mapping:         map[string]int{ele.Uid: 1, r.LeftNode.Uid: 0},
-							Function:        f1,
-							LocalFunction:   f2,
-						}
+					ex.LeftNode.Origin = &Expression{
+						LeftNode: Node{
+							Uid:        ele.Uid,
+							Expression: ele.Expression,
+							Numerical:  ele.Numerical,
+						},
+						RightNode: Node{
+							Uid:        r.RightNode.Uid,
+							Expression: r.RightNode.Expression,
+							Numerical:  r.RightNode.Numerical,
+						},
+						Operation:       r.Operation,
+						WholeExpression: equa.RHS,
+						Mapping:         map[string]int{ele.Uid: 0, r.RightNode.Uid: 1},
+						Function:        f1,
+						LocalFunction:   f2,
 					}
-					ex = ex.RightNode.Origin
 				}
-			} else if equa.RightVar == ele.Expression {
-				if nodePath[ind-1].IsLeft {
-					// fmt.Println(ex.LeftNode.Origin, ele.Expression)
-					if ex.LeftNode.Expression == ele.Expression {
-						// fmt.Println(ex.LeftNode.Expression, ele.Expression, "CONT")
-						continue
+				ex = ex.LeftNode.Origin
+			} else {
+				fmt.Println(ex.RightNode.Expression, ele.Expression)
+				// if ex.RightNode.Expression == ele.Expression {
+				// 	fmt.Println(ex.RightNode.Expression, ele.Expression)
+				// 	ex = ex.RightNode.Origin
+				// 	continue
+				// }
+				if ex.RightNode.Origin == nil {
+					ex.RightNode.Origin = &Expression{
+						LeftNode: Node{
+							Uid:        ele.Uid,
+							Expression: ele.Expression,
+							Numerical:  ele.Numerical,
+						},
+						Operation:       equa.Operation,
+						WholeExpression: equa.RHS,
 					}
-					if ex.LeftNode.Origin == nil {
-						ex.LeftNode.Origin = &Expression{
-							LeftNode: Node{
-								Uid:        ele.Uid,
-								Expression: ele.Expression,
-								Numerical:  ele.Numerical,
-							},
-						}
-					} else {
-						// if ex.LeftNode.Expression == ele.Expression {
-						// 	ex = ex.LeftNode.Origin
-						// 	fmt.Println("CONS")
-						// 	continue
-						// }
-						ori := nodePath[len(nodePath)-2]
-						// fmt.Println(ori, "gjrsgad")
-						oriEqu, err := findEquationEquationList(q.EquationsList, ori)
-						// fmt.Println(oriEqu, 5454)
-						if err != nil {
-							// fmt.Println("errorssss")
-							return
-						}
-						f1, f2 := findFunction(oriEqu.Operation)
-						r := ex.LeftNode.Origin
-						// fmt.Println(r, "grs")
-						if r.LeftNode.Uid == ele.Uid {
-							ex = ex.RightNode.Origin
-							continue
-						}
-						ex.LeftNode.Origin = &Expression{
-							LeftNode: Node{
-								Uid:        ele.Uid,
-								Expression: ele.Expression,
-								Numerical:  ele.Numerical,
-							},
-							RightNode: Node{
-								Uid:        r.RightNode.Uid,
-								Expression: r.RightNode.Expression,
-								Numerical:  r.RightNode.Numerical,
-							},
-							Operation:       r.Operation,
-							WholeExpression: equa.RHS,
-							Mapping:         map[string]int{ele.Uid: 0, r.RightNode.Uid: 1},
-							Function:        f1,
-							LocalFunction:   f2,
-						}
-					}
-					ex = ex.LeftNode.Origin
 				} else {
-					fmt.Println(ex.RightNode.Expression, ele.Expression)
-					if ex.RightNode.Expression == ele.Expression {
-						// fmt.Println(ex.RightNode.Expression, ele.Expression, "CONT")
+					// if ex.LeftNode.Expression == ele.Expression {
+					// 	ex = ex.LeftNode.Origin
+					// 	fmt.Println("CONS")
+					// 	continue
+					// }
+					ori := nodePath[len(nodePath)-2]
+					// fmt.Println(ori, "gjrsgad")
+					oriEqu, err := findEquationEquationList(q.EquationsList, ori)
+					// fmt.Println(oriEqu, 5454)
+					if err != nil {
+						// fmt.Println("errorssss")
+						return
+					}
+					f1, f2 := findFunction(oriEqu.Operation)
+					r := ex.RightNode.Origin
+					// fmt.Println(r, "grs")
+					if r.LeftNode.Uid == ele.Uid {
+						ex = ex.RightNode.Origin
 						continue
 					}
-					if ex.RightNode.Origin == nil {
-						ex.RightNode.Origin = &Expression{
+					ex.RightNode.Origin = &Expression{
+						LeftNode: Node{
+							Uid:        ele.Uid,
+							Expression: ele.Expression,
+							Numerical:  ele.Numerical,
+						},
+						RightNode: Node{
+							Uid:        r.RightNode.Uid,
+							Expression: r.RightNode.Expression,
+							Numerical:  r.RightNode.Numerical,
+						},
+						Operation:       r.Operation,
+						WholeExpression: equa.RHS,
+						Mapping:         map[string]int{ele.Uid: 0, r.RightNode.Uid: 1},
+						Function:        f1,
+						LocalFunction:   f2,
+					}
+				}
+				ex = ex.RightNode.Origin
+			}
+		} else if equa.RightVar == ele.Expression {
+			if equa.LHS == equaOld.RightVar {
+				fmt.Println(ex.RightNode.Expression, ele.Expression)
+				// if ex.RightNode.Expression == ele.Expression {
+				// 	// fmt.Println(ex.RightNode.Expression, ele.Expression, "CONT")
+				// 	ex = ex.RightNode.Origin
+				// 	continue
+				// }
+				if ex.RightNode.Origin == nil {
+					ex.RightNode.Origin = &Expression{
+						RightNode: Node{
+							Uid:        ele.Uid,
+							Expression: ele.Expression,
+							Numerical:  ele.Numerical,
+						},
+					}
+				} else {
+					fmt.Println(ex.RightNode.Expression, ele.Expression, "final")
+					ori := nodePath[len(nodePath)-2]
+					// fmt.Println(ori, "gjrsgad")
+					oriEqu, err := findEquationEquationList(q.EquationsList, ori)
+					// fmt.Println(oriEqu, 5454)
+					if err != nil {
+						// fmt.Println("errorssss")
+						return
+					}
+					f1, f2 := findFunction(oriEqu.Operation)
+					r := ex.RightNode.Origin
+					fmt.Println(r.RightNode.Expression, r.LeftNode.Expression, "gfgf", ele.Expression)
+					if r.RightNode.Uid == ele.Uid {
+						ex = ex.RightNode.Origin
+						continue
+					}
+					sfs, _ = json.Marshal(&r)
+					fmt.Println(string(sfs), "grrrrs", equa.RHS)
+					ex.RightNode.Origin = &Expression{
+						RightNode: Node{
+							Uid:        ele.Uid,
+							Expression: ele.Expression,
+							Numerical:  ele.Numerical,
+						},
+						LeftNode: Node{
+							Uid:        r.LeftNode.Uid,
+							Expression: r.LeftNode.Expression,
+							Numerical:  r.LeftNode.Numerical,
+						},
+						Operation:       r.Operation,
+						WholeExpression: equa.RHS,
+						Mapping:         map[string]int{ele.Uid: 1, r.LeftNode.Uid: 0},
+						Function:        f1,
+						LocalFunction:   f2,
+					}
+				}
+				ex = ex.RightNode.Origin
+				sfs, _ = json.Marshal(ex)
+				fmt.Println(string(sfs), "after2")
+			} else {
+				fmt.Println(ex.LeftNode.Expression, ele.Expression, ex.WholeExpression)
+				// if ex.RightNode.Expression == ele.Expression {
+				// 	// fmt.Println(ex.RightNode.Expression, ele.Expression, "CONT")
+				// 	ex = ex.RightNode.Origin
+				// 	continue
+				// }
+				if ex.LeftNode.Origin == nil {
+					ex.LeftNode.Origin = &Expression{
+						RightNode: Node{
+							Uid:        ele.Uid,
+							Expression: ele.Expression,
+							Numerical:  ele.Numerical,
+						},
+					}
+				} else {
+					fmt.Println(ex.LeftNode.Expression, ele.Expression, "final")
+					ori := nodePath[len(nodePath)-2]
+					// fmt.Println(ori, "gjrsgad")
+					oriEqu, err := findEquationEquationList(q.EquationsList, ori)
+					// fmt.Println(oriEqu, 5454)
+					if err != nil {
+						// fmt.Println("errorssss")
+						return
+					}
+					f1, f2 := findFunction(oriEqu.Operation)
+					r := ex.LeftNode.Origin
+					fmt.Println(r.RightNode.Expression, r.LeftNode.Expression, "gfgf", ele.Expression)
+					if r.LeftNode.Uid == ele.Uid {
+						ex = ex.RightNode.Origin
+						continue
+					}
+					fmt.Println(r, "grrrrs", equa.RHS)
+					ex.LeftNode.Origin = &Expression{
+						RightNode: Node{
+							Uid:        ele.Uid,
+							Expression: ele.Expression,
+							Numerical:  ele.Numerical,
+						},
+						LeftNode: Node{
+							Uid:        r.LeftNode.Uid,
+							Expression: r.LeftNode.Expression,
+							Numerical:  r.LeftNode.Numerical,
+						},
+						Operation:       r.Operation,
+						WholeExpression: equa.RHS,
+						Mapping:         map[string]int{ele.Uid: 1, r.LeftNode.Uid: 0},
+						Function:        f1,
+						LocalFunction:   f2,
+					}
+				}
+				ex = ex.RightNode.Origin
+				sfs, _ = json.Marshal(ex)
+			}
+		}
+		sfs, _ = json.Marshal(q.Graph)
+		fmt.Println(string(sfs), "after")
+		// sfs, _ = json.Marshal(ex)
+		// fmt.Println(string(sfs), "after2")
+	}
+}
+
+func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *Expression{
+	ssss := nodePathtoList(nodePath)
+	fmt.Println("nodePathtoList", ssss)
+	r := ex
+	for ind, ele := range nodePath {
+		fmt.Println(ex, "INITIAL")
+		if len(r.LeftNode.Uid) == 0 && len(r.RightNode.Uid) == 0 {
+			start := q.StartNode
+			startEqu, err := findEquationEquationList(q.EquationsList, start)
+			if err != nil {
+				return ex
+			}
+			f1, f2 := findFunction(startEqu.Operation)
+			*ex = Expression{
+				RightNode: Node{
+					Uid:        q.AdjList[start][1].Uid,
+					Expression: q.AdjList[start][1].Expression,
+					Numerical:  q.AdjList[start][1].Numerical,
+				},
+				LeftNode: Node{
+					Uid:        q.AdjList[start][0].Uid,
+					Expression: q.AdjList[start][0].Expression,
+					Numerical:  q.AdjList[start][0].Numerical,
+				},
+				Operation:       startEqu.Operation,
+				WholeExpression: startEqu.RHS,
+				Mapping:         map[string]int{q.AdjList[start][0].Uid: 0, q.AdjList[start][1].Uid: 1},
+				Function:        f1,
+				LocalFunction:   f2,
+			}
+			fmt.Println(ex, "fds")
+		} else {
+			if ind == 0 {
+				continue
+			}
+			parentNode, err := findEquationEquationList(q.EquationsList, nodePath[ind-1])
+			currentNode, _ := findEquationEquationList(q.EquationsList, ele)
+			if err != nil {
+				return ex
+			} else {
+				if parentNode.LeftVar == ele.Expression {
+					fmt.Println("fdaa", parentNode)
+					// fmt.Println(&ex.LeftNode.Origin.LeftNode)
+					if r.LeftNode.Origin == nil {
+						childrenNodes := q.AdjList[ele]
+						if len(childrenNodes) == 0 {
+							return ex
+						}
+						
+						f1, f2 := findFunction(currentNode.Operation)
+						r.LeftNode.Origin = &Expression{
 							RightNode: Node{
-								Uid:        ele.Uid,
-								Expression: ele.Expression,
-								Numerical:  ele.Numerical,
-							},
-						}
-					} else {
-						fmt.Println(ex.RightNode.Expression, ele.Expression, "final")
-						// if ex.RightNode.Expression == ele.Expression {
-						// 	fmt.Println("CONS")
-						// 	ex = ex.RightNode.Origin
-						// 	continue
-						// }
-						ori := nodePath[len(nodePath)-2]
-						// fmt.Println(ori, "gjrsgad")
-						oriEqu, err := findEquationEquationList(q.EquationsList, ori)
-						// fmt.Println(oriEqu, 5454)
-						if err != nil {
-							// fmt.Println("errorssss")
-							return
-						}
-						f1, f2 := findFunction(oriEqu.Operation)
-						r := ex.RightNode.Origin
-						fmt.Println(r.RightNode.Expression, r.LeftNode.Expression, "gfgf", ele.Expression)
-						if r.RightNode.Uid == ele.Uid {
-							ex = ex.RightNode.Origin
-							continue
-						}
-						fmt.Println(r, "grrrrs", equa.RHS)
-						ex.RightNode.Origin = &Expression{
-							RightNode: Node{
-								Uid:        ele.Uid,
-								Expression: ele.Expression,
-								Numerical:  ele.Numerical,
+								Uid:        childrenNodes[1].Uid,
+								Expression: childrenNodes[1].Expression,
+								Numerical:  childrenNodes[1].Numerical,
 							},
 							LeftNode: Node{
-								Uid:        r.LeftNode.Uid,
-								Expression: r.LeftNode.Expression,
-								Numerical:  r.LeftNode.Numerical,
+								Uid:        childrenNodes[0].Uid,
+								Expression: childrenNodes[0].Expression,
+								Numerical:  childrenNodes[0].Numerical,
 							},
-							Operation:       r.Operation,
-							WholeExpression: equa.RHS,
-							Mapping:         map[string]int{ele.Uid: 1, r.LeftNode.Uid: 0},
+							Operation:       currentNode.Operation,
+							WholeExpression: currentNode.RHS,
 							Function:        f1,
 							LocalFunction:   f2,
+							Mapping:         map[string]int{childrenNodes[0].Uid: 0, childrenNodes[1].Uid: 1},
 						}
+					} else {
+						r = r.LeftNode.Origin
 					}
-					ex = ex.RightNode.Origin
-					sfs, _ = json.Marshal(ex)
-					fmt.Println(string(sfs), "after2")
+				} else {
+					fmt.Println("fda", parentNode)
+					fmt.Println(r.RightNode.Origin == nil)
+					if r.RightNode.Origin == nil {
+						childrenNodes := q.AdjList[ele]
+						if len(childrenNodes) == 0 {
+							return ex
+						}
+						f1, f2 := findFunction(currentNode.Operation)
+						r.RightNode.Origin = &Expression{
+							RightNode: Node{
+								Uid:        childrenNodes[1].Uid,
+								Expression: childrenNodes[1].Expression,
+								Numerical:  childrenNodes[1].Numerical,
+							},
+							LeftNode: Node{
+								Uid:        childrenNodes[0].Uid,
+								Expression: childrenNodes[0].Expression,
+								Numerical:  childrenNodes[0].Numerical,
+							},
+							Operation:       currentNode.Operation,
+							WholeExpression: currentNode.RHS,
+							Function:        f1,
+							LocalFunction:   f2,
+							Mapping:         map[string]int{childrenNodes[0].Uid: 0, childrenNodes[1].Uid: 1},
+						}
+					} else {
+						r = r.RightNode.Origin
+					}
 				}
 			}
-			sfs, _ = json.Marshal(q.Graph)
-			fmt.Println(string(sfs), "after")
-			// sfs, _ = json.Marshal(ex)
-			// fmt.Println(string(sfs), "after2")
-		} else {
-
 		}
 	}
+	return ex
 }
 
 func (q *EquationList) GenerateExpressionNew() {
@@ -1282,6 +1413,19 @@ func (q *EquationList) GenerateExpressionNew() {
 	for _, ele := range visitedList[3:] {
 		q.AddChildNode(ele)
 	}
+}
+
+func (q *EquationList) GenerateNew(ex *Expression) *Expression{
+	visitedList := [][]SimpleNode{}
+	AdjDFS(q.AdjList, q.StartNode, []SimpleNode{}, &visitedList)
+	SortVisitedList(&visitedList)
+	fmt.Println(visitedList, "ghearihj")
+	for ind, ele := range visitedList {
+		ex = q.AddChildNodeNew(ex, ele)
+		sfs, _ := json.Marshal(ex)
+		fmt.Println(string(sfs), ind, "resultttt")
+	}
+	return ex
 }
 
 func (e *Expression) ExtendExpression() {
@@ -1354,6 +1498,7 @@ func main() {
 	resss, _ := matchNodesOperation("543.543+bndsfk")
 
 	exm := map[string][]string{
+		"f": {"e", "d"},
 		"e": {"a", "d"},
 		"d": {"y", "c"},
 		"c": {"a", "b"},
@@ -1370,7 +1515,7 @@ func main() {
 	resd, _ := strconv.ParseFloat("5321.532", 64)
 	fmt.Println(resd)
 	d := EquationList{
-		Equations: []string{"c=a+b", "d=y/c", "e=a+d"},
+		Equations: []string{"c=b+a", "d=y/c", "e=a+d", "f=e+d"},
 	}
 	d.generateEquationsList()
 	fmt.Println(d.EquationsList, "EquationsList")
@@ -1379,9 +1524,16 @@ func main() {
 	// d.generateChildNode()
 	fmt.Println(d)
 	d.GenerateAdjList()
-	d.GenerateExpressionNew()
-	sfs, _ := json.Marshal(d.Graph)
+	fmt.Println(d.AdjList, "\n", d.AllNode, "ALLNODE")
+
+	exxe := &Expression{}
+	d.GenerateNew(exxe)
+	sfs, _ := json.Marshal(exxe)
 	fmt.Println(string(sfs))
+
+	// d.GenerateExpressionNew()
+	// sfs, _ := json.Marshal(d.Graph)
+	// fmt.Println(string(sfs))
 
 	time.Sleep(time.Hour)
 	fmt.Println(d.AdjList, "\n", d.AllNode)

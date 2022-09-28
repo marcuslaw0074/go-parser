@@ -1,58 +1,115 @@
 {
   "rightNode": {
-    "uid": "f8eae9c6-e971-4fc2-a79d-29a27577b8e5",
+    "uid": "66bc381b-92f2-4268-b947-133af5037dc1",
     "numerical": 0,
     "expression": "d",
     "origin": {
       "rightNode": {
-        "uid": "6b7ff2bf-fe0b-4af9-8ff6-019b1840f090",
+        "uid": "3dcb156d-20df-4f3f-a210-ffdee611c46d",
         "numerical": 0,
         "expression": "c",
         "origin": {
           "rightNode": {
-            "uid": "03d9318b-06c3-4e38-841e-fd6df2d016b1",
-            "numerical": 0,
-            "expression": "b",
-            "origin": null
-          },
-          "operation": "+",
-          "leftNode": {
-            "uid": "e497bf7d-fcfb-4a36-9d01-50bdf381eefa",
+            "uid": "c7d3b66e-2530-4bd4-b53b-0d4bd341a3fa",
             "numerical": 0,
             "expression": "a",
             "origin": null
           },
-          "wholeExpression": "a+b",
+          "operation": "+",
+          "leftNode": {
+            "uid": "5bc4e4f4-ab64-411f-aea0-98c27b2c5bf7",
+            "numerical": 0,
+            "expression": "b",
+            "origin": null
+          },
+          "wholeExpression": "b+a",
           "mapping": {
-            "03d9318b-06c3-4e38-841e-fd6df2d016b1": 1,
-            "e497bf7d-fcfb-4a36-9d01-50bdf381eefa": 0
+            "5bc4e4f4-ab64-411f-aea0-98c27b2c5bf7": 0,
+            "c7d3b66e-2530-4bd4-b53b-0d4bd341a3fa": 1
           }
         }
       },
       "operation": "/",
       "leftNode": {
-        "uid": "fcd030fa-2b9a-43f2-8073-e43f6889be93",
+        "uid": "bff6d552-b000-4f24-ba68-69bcc082789f",
         "numerical": 0,
         "expression": "y",
         "origin": null
       },
       "wholeExpression": "y/c",
       "mapping": {
-        "6b7ff2bf-fe0b-4af9-8ff6-019b1840f090": 1,
-        "fcd030fa-2b9a-43f2-8073-e43f6889be93": 0
+        "3dcb156d-20df-4f3f-a210-ffdee611c46d": 1,
+        "bff6d552-b000-4f24-ba68-69bcc082789f": 0
       }
     }
   },
   "operation": "+",
   "leftNode": {
-    "uid": "e497bf7d-fcfb-4a36-9d01-50bdf381eefa",
+    "uid": "af5f666f-343f-4016-b955-6c7e4a9639d8",
     "numerical": 0,
-    "expression": "a",
-    "origin": null
+    "expression": "e",
+    "origin": {
+      "rightNode": {
+        "uid": "66bc381b-92f2-4268-b947-133af5037dc1",
+        "numerical": 0,
+        "expression": "d",
+        "origin": {
+          "rightNode": {
+            "uid": "3dcb156d-20df-4f3f-a210-ffdee611c46d",
+            "numerical": 0,
+            "expression": "c",
+            "origin": {
+              "rightNode": {
+                "uid": "c7d3b66e-2530-4bd4-b53b-0d4bd341a3fa",
+                "numerical": 0,
+                "expression": "a",
+                "origin": null
+              },
+              "operation": "+",
+              "leftNode": {
+                "uid": "5bc4e4f4-ab64-411f-aea0-98c27b2c5bf7",
+                "numerical": 0,
+                "expression": "b",
+                "origin": null
+              },
+              "wholeExpression": "b+a",
+              "mapping": {
+                "5bc4e4f4-ab64-411f-aea0-98c27b2c5bf7": 0,
+                "c7d3b66e-2530-4bd4-b53b-0d4bd341a3fa": 1
+              }
+            }
+          },
+          "operation": "/",
+          "leftNode": {
+            "uid": "bff6d552-b000-4f24-ba68-69bcc082789f",
+            "numerical": 0,
+            "expression": "y",
+            "origin": null
+          },
+          "wholeExpression": "y/c",
+          "mapping": {
+            "3dcb156d-20df-4f3f-a210-ffdee611c46d": 1,
+            "bff6d552-b000-4f24-ba68-69bcc082789f": 0
+          }
+        }
+      },
+      "operation": "+",
+      "leftNode": {
+        "uid": "c7d3b66e-2530-4bd4-b53b-0d4bd341a3fa",
+        "numerical": 0,
+        "expression": "a",
+        "origin": null
+      },
+      "wholeExpression": "a+d",
+      "mapping": {
+        "66bc381b-92f2-4268-b947-133af5037dc1": 1,
+        "c7d3b66e-2530-4bd4-b53b-0d4bd341a3fa": 0
+      }
+    }
   },
-  "wholeExpression": "a+d",
+  "wholeExpression": "e+d",
   "mapping": {
-    "e497bf7d-fcfb-4a36-9d01-50bdf381eefa": 0,
-    "f8eae9c6-e971-4fc2-a79d-29a27577b8e5": 1
+    "66bc381b-92f2-4268-b947-133af5037dc1": 1,
+    "af5f666f-343f-4016-b955-6c7e4a9639d8": 0
   }
 }

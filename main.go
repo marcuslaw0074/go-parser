@@ -633,7 +633,6 @@ func (q *EquationList) generateEquationsList() {
 	} else {
 		fmt.Println("Already generated EquationList!")
 	}
-
 }
 
 func findAdjListKeys(m map[SimpleNode][]SimpleNode) []SimpleNode {

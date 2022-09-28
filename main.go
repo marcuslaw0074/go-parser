@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"math"
+	"regexp"
 	"sort"
 	"strconv"
-	"time"
-	"github.com/google/uuid"
-	"regexp"
 	"strings"
+	"time"
 )
 
 type Node struct {
@@ -37,68 +37,22 @@ type Expression struct {
 	Mapping         map[string]int                 `json:"mapping"`
 }
 
-func generateFunction(s1, s2 Node, operation string) (func(...float64) float64, error) {
-	switch operation {
-	case "+":
-		if s1.Expression != "" && s2.Expression != "" {
-			return func(f ...float64) float64 {
-				return f[0] + f[1]
-			}, nil
-		} else if s1.Expression != "" {
-			return func(f ...float64) float64 {
-				return f[0] + s2.Numerical
-			}, nil
-		} else if s2.Expression != "" {
-			return func(f ...float64) float64 {
-				return s1.Numerical + f[0]
-			}, nil
-		}
-	case "-":
-		if s1.Expression != "" && s2.Expression != "" {
-			return func(f ...float64) float64 {
-				return f[0] - f[1]
-			}, nil
-		} else if s1.Expression != "" {
-			return func(f ...float64) float64 {
-				return f[0] - s2.Numerical
-			}, nil
-		} else if s2.Expression != "" {
-			return func(f ...float64) float64 {
-				return s1.Numerical - f[0]
-			}, nil
-		}
-	case "*":
-		if s1.Expression != "" && s2.Expression != "" {
-			return func(f ...float64) float64 {
-				return f[0] * f[1]
-			}, nil
-		} else if s1.Expression != "" {
-			return func(f ...float64) float64 {
-				return f[0] * s2.Numerical
-			}, nil
-		} else if s2.Expression != "" {
-			return func(f ...float64) float64 {
-				return s1.Numerical * f[0]
-			}, nil
-		}
-	case "/":
-		if s1.Expression != "" && s2.Expression != "" {
-			return func(f ...float64) float64 {
-				return f[0] / f[1]
-			}, nil
-		} else if s1.Expression != "" {
-			return func(f ...float64) float64 {
-				return f[0] / s2.Numerical
-			}, nil
-		} else if s2.Expression != "" {
-			return func(f ...float64) float64 {
-				return s1.Numerical / f[0]
-			}, nil
-		}
-	default:
-		return func(f ...float64) float64 { return math.NaN() }, errors.New("no such operators")
-	}
-	return func(f ...float64) float64 { return math.NaN() }, errors.New("wrong expressions")
+type Equation struct {
+	RHS       string `json:"rhs"`
+	LHS       string `json:"lhs"`
+	Relation  string `json:"relation"`
+	RightVar  string `json:"rightVar"`
+	LeftVar   string `json:"leftVar"`
+	Operation string `json:"operation"`
+}
+
+type EquationList struct {
+	Equations     []string                    `json:"equations"`
+	Graph         *Expression                 `json:"graph"`
+	EquationsList []Equation                  `json:"equationlist"`
+	AdjList       map[SimpleNode][]SimpleNode `json:"adjList"`
+	AllNode       []SimpleNode                `json:"allNode"`
+	StartNode     SimpleNode                  `json:"startNode"`
 }
 
 func matchNodesOperation(str string) (Expression, error) {
@@ -381,36 +335,6 @@ func matchOperation(str string) (bool, error) {
 	return match, err
 }
 
-func getOperation(str string) (func(float64, float64) float64, map[string]int, error) {
-	def := func(f1, f2 float64) float64 { return 0 }
-	match, err := matchOperation(str)
-	if err != nil {
-		return def, map[string]int{}, err
-	}
-	if match {
-		str = strings.Replace(str, " ", "", -1)
-		var operands []string
-		switch {
-		case strings.Contains(str, "+"):
-			operands = strings.Split(str, "+")
-			return func(f1, f2 float64) float64 { return f1 + f2 }, map[string]int{operands[0]: 0, operands[1]: 1}, nil
-		case strings.Contains(str, "-"):
-			operands = strings.Split(str, "-")
-			return func(f1, f2 float64) float64 { return f1 - f2 }, map[string]int{operands[0]: 0, operands[1]: 1}, nil
-		case strings.Contains(str, "*"):
-			operands = strings.Split(str, "*")
-			return func(f1, f2 float64) float64 { return f1 * f2 }, map[string]int{operands[0]: 0, operands[1]: 1}, nil
-		case strings.Contains(str, "/"):
-			operands = strings.Split(str, "/")
-			return func(f1, f2 float64) float64 { return f1 / f2 }, map[string]int{operands[0]: 0, operands[1]: 1}, nil
-		default:
-			return def, map[string]int{}, errors.New("wrong operation")
-		}
-	} else {
-		return def, map[string]int{}, errors.New("wrong format")
-	}
-}
-
 func findOperation(str string) string {
 	for _, ele := range []string{"+", "-", "*", "/"} {
 		if strings.Index(str, ele) > -1 {
@@ -418,13 +342,6 @@ func findOperation(str string) string {
 		}
 	}
 	return ""
-}
-
-func findOperand(str string) []string {
-	str = strings.Replace(str, " ", "", -1)
-	regexp, _ := regexp.Compile(`[_a-zA-Z]\w*`)
-	match := regexp.FindAllString(str, 2)
-	return match
 }
 
 func findFunction(operator string) (func(...float64) float64, func(float64, float64) float64) {
@@ -522,34 +439,6 @@ func MinMax(array []int) (int, int) {
 		}
 	}
 	return min, max
-}
-
-type Graph struct {
-	nodes []*GraphNode
-}
-
-type GraphNode struct {
-	id    int
-	edges map[int]int
-}
-
-func New() *Graph {
-	return &Graph{
-		nodes: []*GraphNode{},
-	}
-}
-
-func (g *Graph) AddNode() (id int) {
-	id = len(g.nodes)
-	g.nodes = append(g.nodes, &GraphNode{
-		id:    id,
-		edges: make(map[int]int),
-	})
-	return
-}
-
-func (g *Graph) AddEdge(n1, n2 int, w int) {
-	g.nodes[n1].edges[n2] = w
 }
 
 func (e *Expression) findEndNode() *Expression {
@@ -718,24 +607,6 @@ func (e *Expression) generateFunctionMap() (func(...float64) float64, map[string
 	return e.Function, e.Mapping
 }
 
-type Equation struct {
-	RHS       string `json:"rhs"`
-	LHS       string `json:"lhs"`
-	Relation  string `json:"relation"`
-	RightVar  string `json:"rightVar"`
-	LeftVar   string `json:"leftVar"`
-	Operation string `json:"operation"`
-}
-
-type EquationList struct {
-	Equations     []string                    `json:"equations"`
-	Graph         *Expression                 `json:"graph"`
-	EquationsList []Equation                  `json:"equationlist"`
-	AdjList       map[SimpleNode][]SimpleNode `json:"adjList"`
-	AllNode       []SimpleNode                `json:"allNode"`
-	StartNode     SimpleNode                  `json:"startNode"`
-}
-
 func reverse[S ~[]E, E any](s S) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
@@ -763,10 +634,6 @@ func (q *EquationList) generateEquationsList() {
 		fmt.Println("Already generated EquationList!")
 	}
 
-}
-
-func (q *EquationList) reverseEquationsList() {
-	reverse(q.Equations)
 }
 
 func findAdjListKeys(m map[SimpleNode][]SimpleNode) []SimpleNode {
@@ -983,7 +850,7 @@ func CompareSlice(s []string, s2 []string) bool {
 	return true
 }
 
-func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *Expression{
+func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *Expression {
 	ssss := nodePathtoList(nodePath)
 	fmt.Println("nodePathtoList", ssss)
 	r := ex
@@ -1028,7 +895,7 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *E
 						if len(childrenNodes) == 0 {
 							return ex
 						}
-						
+
 						f1, f2 := findFunction(currentNode.Operation)
 						r.LeftNode.Origin = &Expression{
 							RightNode: Node{
@@ -1084,7 +951,7 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *E
 	return ex
 }
 
-func (q *EquationList) GenerateNew(ex *Expression) *Expression{
+func (q *EquationList) GenerateNew(ex *Expression) *Expression {
 	visitedList := [][]SimpleNode{}
 	AdjDFS(q.AdjList, q.StartNode, []SimpleNode{}, &visitedList)
 	SortVisitedList(&visitedList)
@@ -1138,18 +1005,45 @@ func (q *EquationList) generateChildNode() error {
 	return nil
 }
 
+func CheckDuplicate[T string | int](s []T) bool {
+	allKeys := make(map[T]bool)
+	for _, item := range s {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+		} else {
+			return true
+		}
+	}
+	return false
+}
+
+func CheckDuplicateVar(s []Equation) bool {
+	allKeys := make(map[string]bool)
+	for _, item := range s {
+		if _, value := allKeys[item.LHS]; !value {
+			allKeys[item.LHS] = true
+		} else {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
+
+	fmt.Println(CheckDuplicate([]string{"1", "2", "3", "3"}))
 	d := EquationList{
-		Equations: []string{"c=b+a", "d=y/c", "e=a+d", "f=e+d", "g=f/c"},
+		Equations: []string{"c=b+a", "d=y/c", "e=a+d", "f=e+d", "f=f/c"},
 	}
 	d.generateEquationsList()
 	fmt.Println(d.EquationsList, "EquationsList")
+	fmt.Println(CheckDuplicateVar(d.EquationsList), "gbksea")
 	fmt.Println(d)
 	d.GenerateAdjList()
 	exxe := &Expression{}
 	d.GenerateNew(exxe)
 	ffff, mmm := exxe.generateFunctionMap()
-	fmt.Println(ffff([]float64{1,2,3}...), mmm)
+	fmt.Println(ffff([]float64{1, 2, 3}...), mmm)
 	sfs, _ := json.Marshal(exxe)
 	fmt.Println(string(sfs))
 	time.Sleep(time.Hour)

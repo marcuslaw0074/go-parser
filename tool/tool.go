@@ -96,3 +96,4 @@ func ReplaceExpression(s, replace string, replaceLeft bool) string {
 		return fmt.Sprintf("%s%s(%s)", operands[0], operator, replace)
 	}
 }
+

@@ -1,7 +1,6 @@
 package expressionparser
 
 import (
-	"fmt"
 	"go-parser/tool"
 )
 
@@ -70,7 +69,6 @@ func (e *Expression) MergeNode() *Expression {
 		localMap = e.RightNode.Origin.Mapping
 		exp := *e.RightNode.Origin
 		newMap := e.Mapping
-		// delete(newMap, e.RightNode.Expression)
 		delete(newMap, e.RightNode.Uid)
 		originMap := []string{}
 		localMapKeys := tool.FindMapKeysSorted(localMap)
@@ -86,7 +84,6 @@ func (e *Expression) MergeNode() *Expression {
 		newlocalValues := tool.FindValuesByKeys(localMapKeys, localMap)
 		newValues := tool.FindValuesByKeys(sortedKeys, localMap)
 		function := func(f ...float64) float64 {
-			fmt.Println(f, localMap)
 			if len(originMap) == 0 {
 				return e.LocalFunction(f[newValues[0]], exp.Function(tool.SubSliceFloat(newlocalValues, f)...))
 			}
@@ -100,7 +97,6 @@ func (e *Expression) MergeNode() *Expression {
 		localMap = e.LeftNode.Origin.Mapping
 		exp := *e.LeftNode.Origin
 		newMap := e.Mapping
-		// delete(newMap, e.LeftNode.Expression)
 		delete(newMap, e.LeftNode.Uid)
 		originMap := []string{}
 		localMapKeys := tool.FindMapKeysSorted(localMap)
@@ -116,7 +112,6 @@ func (e *Expression) MergeNode() *Expression {
 		newlocalValues := tool.FindValuesByKeys(localMapKeys, localMap)
 		newValues := tool.FindValuesByKeys(sortedKeys, localMap)
 		function := func(f ...float64) float64 {
-			fmt.Println(f, localMap)
 			if len(originMap) == 0 {
 				return e.LocalFunction(f[newValues[0]], exp.Function(tool.SubSliceFloat(newlocalValues, f)...))
 			}
@@ -131,10 +126,8 @@ func (e *Expression) MergeNode() *Expression {
 		localMapRight := e.RightNode.Origin.Mapping
 		expRight := *e.RightNode.Origin
 		originMap := []string{}
-		fmt.Println(localMapLeft)
 		localMapLeftKeys := tool.FindMapKeysSorted(localMapLeft)
 		localMapRightKeys := tool.FindMapKeysSorted(localMapRight)
-		fmt.Println(localMapLeftKeys, localMapRightKeys, "111")
 		sortedKeys := tool.FindMapKeysSorted(localMapRight)
 		for _, key := range sortedKeys {
 			if tool.StrContains(localMapLeftKeys, key) == -1 {
@@ -144,14 +137,9 @@ func (e *Expression) MergeNode() *Expression {
 				originMap = append(originMap, key)
 			}
 		}
-		fmt.Println(localMapLeft)
 		newRightValues := tool.FindValuesByKeys(localMapRightKeys, localMapLeft)
 		newLeftValues := tool.FindValuesByKeys(localMapLeftKeys, localMapLeft)
-		fmt.Println(newLeftValues, newRightValues)
-		fmt.Println(expLeft, expRight)
 		function := func(f ...float64) float64 {
-			fmt.Println(f, localMap)
-			fmt.Println(tool.SubSliceFloat(newLeftValues, f), tool.SubSliceFloat(newRightValues, f))
 			if len(originMap) == 0 {
 				return e.LocalFunction(expLeft.Function(tool.SubSliceFloat(newLeftValues, f)...), expRight.Function(tool.SubSliceFloat(newRightValues, f)...))
 			}

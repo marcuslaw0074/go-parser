@@ -20,7 +20,6 @@ func SubSliceFloat(s []int, ls []float64) []float64 {
 func FindMapKeysSorted(s map[string]int) []string {
 	la := []string{}
 	for key := range s {
-		fmt.Println(key, s)
 		la = append(la, key)
 	}
 	sort.Strings(la)
@@ -61,7 +60,6 @@ func FindMapValues(s map[string]int) []int {
 func FindValuesByKeys(keys []string, mapping map[string]int) []int {
 	la := []int{}
 	for _, key := range keys {
-		fmt.Println(key)
 		for keyy, val := range mapping {
 			if key == keyy {
 				la = append(la, val)

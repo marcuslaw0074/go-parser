@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"math"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Node struct {
@@ -24,7 +25,6 @@ type SimpleNode struct {
 	Uid        string  `json:"uid"`
 	Numerical  float64 `json:"numerical"`
 	Expression string  `json:"expression"`
-	IsLeft     bool    `json:"isLeft"`
 }
 
 type Expression struct {
@@ -600,7 +600,7 @@ func (e *Expression) MergeNode(expList ...Expression) *Expression {
 	return e
 }
 
-func (e *Expression) generateFunctionMap() (func(...float64) float64, map[string]int) {
+func (e *Expression) GenerateFunctionMap() (func(...float64) float64, map[string]int) {
 	for e.existSecondEndNode() {
 		e.findSecondEndNode().MergeNode()
 	}
@@ -665,19 +665,6 @@ func ContainsNode(values []SimpleNode, node SimpleNode) int {
 	return -1
 }
 
-func ContainsNodeStrict(values []SimpleNode, node SimpleNode) int {
-	for ind, ele := range values {
-		if len(node.Expression) > 0 {
-			if ele.Expression == node.Expression && ele.IsLeft == node.IsLeft {
-				return ind
-			}
-		} else if ele.Numerical == node.Numerical && ele.IsLeft == node.IsLeft {
-			return ind
-		}
-	}
-	return -1
-}
-
 func (q *EquationList) GenerateAdjList() {
 	q.generateEquationsList()
 	adjList := map[SimpleNode][]SimpleNode{}
@@ -698,33 +685,28 @@ func (q *EquationList) GenerateAdjList() {
 				valnodeRight = SimpleNode{
 					Uid:       uuid.New().String(),
 					Numerical: num1,
-					IsLeft:    false,
 				}
 				valnodeLeft = SimpleNode{
 					Uid:        uuid.New().String(),
 					Expression: ele.LeftVar,
-					IsLeft:     true,
 				}
 			} else if err2 == nil {
 				valnodeRight = SimpleNode{
 					Uid:        uuid.New().String(),
 					Expression: ele.RightVar,
-					IsLeft:     false,
 				}
 				valnodeLeft = SimpleNode{
 					Uid:       uuid.New().String(),
 					Numerical: num2,
-					IsLeft:    true}
+				}
 			} else {
 				valnodeRight = SimpleNode{
 					Uid:        uuid.New().String(),
 					Expression: ele.RightVar,
-					IsLeft:     false,
 				}
 				valnodeLeft = SimpleNode{
 					Uid:        uuid.New().String(),
 					Expression: ele.LeftVar,
-					IsLeft:     true,
 				}
 			}
 			indKey := ContainsNode(allNode, keynode)
@@ -1041,7 +1023,7 @@ func main() {
 	d.GenerateAdjList()
 	exxe := &Expression{}
 	d.GenerateNew(exxe)
-	ffff, mmm := exxe.generateFunctionMap()
+	ffff, mmm := exxe.GenerateFunctionMap()
 	fmt.Println(ffff([]float64{1, 2, 3}...), mmm)
 	sfs, _ := json.Marshal(exxe)
 	fmt.Println(string(sfs))

@@ -17,7 +17,6 @@ type SimpleNode struct {
 	Uid        string  `json:"uid"`
 	Numerical  float64 `json:"numerical"`
 	Expression string  `json:"expression"`
-	IsLeft     bool    `json:"isLeft"`
 }
 
 type Equation struct {
@@ -119,33 +118,28 @@ func (q *EquationList) GenerateAdjList() {
 				valnodeRight = SimpleNode{
 					Uid:       uuid.New().String(),
 					Numerical: num1,
-					IsLeft:    false,
 				}
 				valnodeLeft = SimpleNode{
 					Uid:        uuid.New().String(),
 					Expression: ele.LeftVar,
-					IsLeft:     true,
 				}
 			} else if err2 == nil {
 				valnodeRight = SimpleNode{
 					Uid:        uuid.New().String(),
 					Expression: ele.RightVar,
-					IsLeft:     false,
 				}
 				valnodeLeft = SimpleNode{
 					Uid:       uuid.New().String(),
 					Numerical: num2,
-					IsLeft:    true}
+				}
 			} else {
 				valnodeRight = SimpleNode{
 					Uid:        uuid.New().String(),
 					Expression: ele.RightVar,
-					IsLeft:     false,
 				}
 				valnodeLeft = SimpleNode{
 					Uid:        uuid.New().String(),
 					Expression: ele.LeftVar,
-					IsLeft:     true,
 				}
 			}
 			indKey := containsNode(allNode, keynode)
@@ -349,6 +343,30 @@ func (q *EquationList) GenerateExpression(ex *parser.Expression) *parser.Express
 	return ex
 }
 
-func Generator(equLs []string) (func(...float64) float64, map[string]int) {
-	return func(f ...float64) float64 { return math.NaN() }, make(map[string]int)
+func checkDuplicateVar(s []Equation) bool {
+	allKeys := make(map[string]bool)
+	for _, item := range s {
+		if _, value := allKeys[item.LHS]; !value {
+			allKeys[item.LHS] = true
+		} else {
+			return true
+		}
+	}
+	return false
+}
+
+func Generator(equLs []string) (func(...float64) float64, map[string]int, error) {
+	d := EquationList{
+		Equations: equLs,
+	}
+	d.generateEquationsList()
+	if checkDuplicateVar(d.EquationsList) {
+		return func(f ...float64) float64 { return math.NaN() }, make(map[string]int), errors.New("equations contains deplicated variables")
+	}
+	d.GenerateAdjList()
+	d.GenerateAdjList()
+	exxe := &parser.Expression{}
+	d.GenerateExpression(exxe)
+	functions, mapping := exxe.GenerateFunctionMap()
+	return functions, mapping, nil
 }

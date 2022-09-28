@@ -3,10 +3,10 @@ package tool
 import "testing"
 
 type replaceTest struct {
-	s string
-	replace string
+	s           string
+	replace     string
 	replaceLeft bool
-	answer string
+	answer      string
 }
 
 var replacetest []replaceTest = []replaceTest{
@@ -23,5 +23,5 @@ func TestValidSample(t *testing.T) {
 			t.Errorf("Incorrect, got: %s, want: %s.", res, ele.answer)
 		}
 	}
-	
+
 }

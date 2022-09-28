@@ -154,10 +154,9 @@ func (e *Expression) MergeNode() *Expression {
 	return e
 }
 
-func (e *Expression) GenerateFunctionMap() (func(...float64) float64 , map[string]int){
+func (e *Expression) GenerateFunctionMap() (func(...float64) float64, map[string]int) {
 	for e.ExistSecondEndNode() {
 		e.FindEndNode().MergeNode()
 	}
 	return e.Function, e.Mapping
 }
-

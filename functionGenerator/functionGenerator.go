@@ -31,7 +31,7 @@ type Equation struct {
 
 type EquationList struct {
 	Equations     []string                    `json:"equations"`
-	Graph         *parser.Expression                 `json:"graph"`
+	Graph         *parser.Expression          `json:"graph"`
 	EquationsList []Equation                  `json:"equationlist"`
 	AdjList       map[SimpleNode][]SimpleNode `json:"adjList"`
 	AllNode       []SimpleNode                `json:"allNode"`
@@ -349,6 +349,6 @@ func (q *EquationList) GenerateExpression(ex *parser.Expression) *parser.Express
 	return ex
 }
 
-func Generator(equLs []string) (func (...float64) float64, map[string]int) {
-	return func(f ...float64) float64 { return math.NaN()}, make(map[string]int)
+func Generator(equLs []string) (func(...float64) float64, map[string]int) {
+	return func(f ...float64) float64 { return math.NaN() }, make(map[string]int)
 }

@@ -64,8 +64,8 @@ var (
 
 var allSample allFormulaTest = allFormulaTest{
 	samples: []formulaTest{
-		test_formula_1, 
-		test_formula_2, 
+		test_formula_1,
+		test_formula_2,
 		test_formula_3,
 	},
 }

@@ -94,3 +94,20 @@ func ReplaceExpression(s, replace string, replaceLeft bool) string {
 		return fmt.Sprintf("%s%s(%s)", operands[0], operator, replace)
 	}
 }
+
+func ReplaceExpressionBoth(s, replaceRight, replaceLeft string) string {
+	operator := ""
+	switch {
+	case strings.Contains(s, "+"):
+		operator = "+"
+	case strings.Contains(s, "-"):
+		operator = "-"
+	case strings.Contains(s, "*"):
+		operator = "*"
+	case strings.Contains(s, "/"):
+		operator = "/"
+	default:
+		return ""
+	}
+	return fmt.Sprintf("(%s)%s(%s)", replaceLeft, operator, replaceRight)
+}

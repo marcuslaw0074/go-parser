@@ -367,6 +367,9 @@ func Generator(equLs []string) (func(...float64) float64, map[string]int, error)
 	d.GenerateAdjList()
 	exxe := &parser.Expression{}
 	d.GenerateExpression(exxe)
+	sfs, _ := json.Marshal(exxe)
+	fmt.Println(string(sfs), "resresres")
 	functions, mapping := exxe.GenerateFunctionMap()
+	fmt.Println(functions([]float64{1,2,3,4,5}...), "gfea")
 	return functions, mapping, nil
 }

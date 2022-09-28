@@ -63,7 +63,7 @@ func (e *Expression) ExistSecondEndNode() bool {
 	}
 }
 
-func (e *Expression) MergeNode() *Expression {
+func (e *Expression) MergeNode(expList ...Expression) *Expression {
 	localMap := map[string]int{}
 	if e.LeftNode.Origin == nil {
 		localMap = e.RightNode.Origin.Mapping
@@ -89,6 +89,7 @@ func (e *Expression) MergeNode() *Expression {
 			}
 			return e.LocalFunction(f[newValues[0]], exp.Function(tool.SubSliceFloat(newlocalValues, f)...))
 		}
+		e.WholeExpression = tool.ReplaceExpression(e.WholeExpression, e.RightNode.Origin.WholeExpression, false)
 		e.Function = function
 		e.RightNode.Origin = nil
 		e.Mapping = localMap
@@ -113,10 +114,11 @@ func (e *Expression) MergeNode() *Expression {
 		newValues := tool.FindValuesByKeys(sortedKeys, localMap)
 		function := func(f ...float64) float64 {
 			if len(originMap) == 0 {
-				return e.LocalFunction(f[newValues[0]], exp.Function(tool.SubSliceFloat(newlocalValues, f)...))
+				return e.LocalFunction(exp.Function(tool.SubSliceFloat(newlocalValues, f)...), f[newValues[0]])
 			}
-			return e.LocalFunction(f[newValues[0]], exp.Function(tool.SubSliceFloat(newlocalValues, f)...))
+			return e.LocalFunction(exp.Function(tool.SubSliceFloat(newlocalValues, f)...), f[newValues[0]])
 		}
+		e.WholeExpression = tool.ReplaceExpression(e.WholeExpression, e.LeftNode.Origin.WholeExpression, true)
 		e.Function = function
 		e.LeftNode.Origin = nil
 		e.Mapping = localMap
@@ -145,6 +147,7 @@ func (e *Expression) MergeNode() *Expression {
 			}
 			return e.LocalFunction(expLeft.Function(tool.SubSliceFloat(newLeftValues, f)...), expRight.Function(tool.SubSliceFloat(newRightValues, f)...))
 		}
+		e.WholeExpression = tool.ReplaceExpressionBoth(e.WholeExpression, e.RightNode.Origin.WholeExpression, e.LeftNode.Origin.WholeExpression)
 		e.Function = function
 		e.RightNode.Origin = nil
 		e.LeftNode.Origin = nil
@@ -156,7 +159,7 @@ func (e *Expression) MergeNode() *Expression {
 
 func (e *Expression) GenerateFunctionMap() (func(...float64) float64, map[string]int) {
 	for e.ExistSecondEndNode() {
-		e.FindEndNode().MergeNode()
+		e.FindSecondEndNode().MergeNode()
 	}
 	return e.Function, e.Mapping
 }

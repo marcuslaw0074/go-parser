@@ -1,6 +1,7 @@
 package main
 
 import (
+	// "encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -758,15 +759,50 @@ func (q *EquationList) GenerateNew(ex *Expression) *Expression {
 	return ex
 }
 
-func main() {
+func (q *EquationList) uidToExpression(m map[string]int) map[string]int {
+	mm := make(map[string]int)
+	for _, ele := range q.AllNode {
+		for key, val := range m {
+			if key==ele.Uid {
+				mm[ele.Expression]=val
+			}
+		}
+	}
+	return mm
+}
+
+func Generator(equaLs []string)  (func(...float64) float64, map[string]int, error) {
 	d := EquationList{
-		Equations: []string{"c=b+a", "d=y/c", "e=a+d", "f=e+d"},
+		Equations: equaLs,
 	}
 	d.generateEquationsList()
-	fmt.Println(d.EquationsList, "EquationsList")
+	if CheckDuplicateVar(d.EquationsList) {
+		return func(f ...float64) float64 { return math.NaN() }, make(map[string]int), errors.New("equations contains deplicated variables")
+	}
+	d.GenerateAdjList()
 	d.GenerateAdjList()
 	exxe := &Expression{}
 	d.GenerateNew(exxe)
-	ffff, mmm := exxe.GenerateFunctionMap()
-	fmt.Println(ffff([]float64{1, 2, 3}...), mmm)
+	// sfs, _ := json.Marshal(exxe)
+	// fmt.Println("json: ", string(sfs))
+	functions, mapping := exxe.GenerateFunctionMap()
+	return functions, d.uidToExpression(mapping), nil
+}
+
+func main() {
+	// d := EquationList{
+	// 	Equations: []string{"c=b+a", "d=y/c", "e=a+d", "f=e+d"},
+	// }
+	// d.generateEquationsList()
+	// fmt.Println(d.EquationsList, "EquationsList")
+	// d.GenerateAdjList()
+	// exxe := &Expression{}
+	// d.GenerateNew(exxe)
+	// ffff, mmm := exxe.GenerateFunctionMap()
+	// fmt.Println(ffff([]float64{1, 2, 3}...), d.uidToExpression(mmm))
+
+	f, m, err := Generator([]string{"c=b+a", "d=y/c", "e=a+d", "f=e+d"})
+	if err == nil {
+		fmt.Println(f([]float64{1, 2, 3}...), m)
+	}
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -10,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"github.com/google/uuid"
-	// gen "go-parser/functiongenerator"
 )
 
 type Node struct {
@@ -54,95 +52,20 @@ type EquationList struct {
 	StartNode     SimpleNode                  `json:"startNode"`
 }
 
-func matchNodesOperation(str string) (Expression, error) {
-	str = strings.Replace(str, " ", "", -1)
-	reg1 := `^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+) *[\*\+\-\/] *[_a-zA-Z]\w*$`
-	reg2 := `^[_a-zA-Z]\w* *[\*\+\-\/] *[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)$`
-	reg3 := `^[_a-zA-Z]\w* *[\*\+\-\/] *[_a-zA-Z]\w*`
-	for ind, ele := range []string{reg1, reg2, reg3} {
-		match, err := regexp.MatchString(ele, str)
-		if err != nil {
-			return Expression{}, err
-		}
-		if match {
-			if ind == 0 || ind == 1 {
-				res, err := regexp.Compile(`[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)`)
-				if err != nil {
-					return Expression{}, err
-				}
-				match := res.FindAllString(str, 1)
-				val, err := strconv.ParseFloat(match[0], 64)
-				if err != nil {
-					return Expression{}, err
-				}
-				res2, err2 := regexp.Compile(`[\*\+\-\/]`)
-				if err2 != nil {
-					return Expression{}, err
-				}
-				match2 := res2.FindAllString(str, 1)
-				res3, err3 := regexp.Compile(`[_a-zA-Z]\w*`)
-				if err3 != nil {
-					return Expression{}, err
-				}
-				match3 := res3.FindAllString(str, 1)
-				f1, f2 := findFunction(match2[0])
-				uid1 := uuid.New().String()
-				uid2 := uuid.New().String()
-				if ind == 0 {
-					return Expression{
-						RightNode: Node{
-							Uid:       uid1,
-							Numerical: val,
-						},
-						Operation: match2[0],
-						LeftNode: Node{
-							Uid:        uid2,
-							Expression: match3[0],
-						},
-						Mapping:       map[string]int{match3[0]: 0},
-						Function:      f1,
-						LocalFunction: f2,
-					}, nil
-				} else {
-					return Expression{
-						LeftNode: Node{
-							Uid:       uuid.New().String(),
-							Numerical: val,
-						},
-						Operation: match2[0],
-						RightNode: Node{
-							Uid:        uuid.New().String(),
-							Expression: match3[0],
-						},
-						Mapping:       map[string]int{match3[0]: 0},
-						Function:      f1,
-						LocalFunction: f2,
-					}, nil
-				}
-			} else {
-				res2, err2 := regexp.Compile(`[\*\+\-\/]`)
-				if err2 != nil {
-					return Expression{}, err
-				}
-				match2 := res2.FindAllString(str, 1)
-				f1, f2 := findFunction(match2[0])
-				return Expression{
-					RightNode: Node{
-						Uid:        uuid.New().String(),
-						Expression: strings.Split(str, match2[0])[0],
-					},
-					Operation: match2[0],
-					LeftNode: Node{
-						Uid:        uuid.New().String(),
-						Expression: strings.Split(str, match2[0])[1],
-					},
-					Function:      f1,
-					LocalFunction: f2,
-				}, nil
-			}
-		}
+const (
+	DIFFERENCE = iota
+	CUMULATIVE_SUM
+	MOVING_AVERAGE
+	SIN
+	COS
+	TAN
+	SQRT
+)
+
+func reverse[S ~[]E, E any](s S) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
 	}
-	return Expression{}, errors.New("not match")
 }
 
 func GenerateExpression(str string) (Expression, error) {
@@ -236,14 +159,6 @@ func GenerateExpression(str string) (Expression, error) {
 	return Expression{}, errors.New("not match")
 }
 
-func matchNodesOperationi(str string) (bool, error) {
-	str = strings.Replace(str, " ", "", -1)
-	// reg1 := `^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+) *[\*\+\-\/] *[_a-zA-Z]\w*`
-	reg := `^[_a-zA-Z]\w* *[\*\+\-\/] *[_a-zA-Z]\w*`
-	match, err := regexp.MatchString(reg, str)
-	return match, err
-}
-
 func strContains(s []string, e string) int {
 	for ind, a := range s {
 		if a == e {
@@ -251,87 +166,6 @@ func strContains(s []string, e string) int {
 		}
 	}
 	return -1
-}
-
-func trans(st string) []string {
-	st = strings.Replace(st, " ", "", -1)
-	stLs := strings.Split(st, "=")
-	return stLs
-}
-
-func transNew(st string) ([]string, error) {
-	st = strings.Replace(st, " ", "", -1)
-	stLs := strings.Split(st, "=")
-	if len(stLs) != 2 {
-		return []string{}, errors.New("equal sign")
-	}
-	operateLs := []string{"+", "-", "*", "/"}
-	ct := 0
-	lss := []string{}
-	for _, ele := range operateLs {
-		if strings.Contains(stLs[1], ele) {
-			ct++
-			lss = strings.Split(stLs[1], ele)
-		}
-	}
-	if ct != 1 {
-		return []string{}, errors.New("can hv exactly one operation")
-	}
-	if len(lss) != 2 {
-		return []string{}, errors.New("can hv exactly one operation")
-	}
-	return []string{}, errors.New("can hv exactly one operation")
-}
-
-const (
-	DIFFERENCE = iota
-	CUMULATIVE_SUM
-	MOVING_AVERAGE
-	SIN
-	COS
-	TAN
-	SQRT
-)
-
-func matchFunction(str string) (bool, error) {
-	str = strings.Replace(str, " ", "", -1)
-	reg := `^[a-zA-Z]\w*\([_a-zA-Z][\w]*\)`
-	match, err := regexp.MatchString(reg, str)
-	return match, err
-}
-
-func getFunction(str string) (string, error) {
-	match, err := matchFunction(str)
-	if err != nil {
-		return "", err
-	}
-	if match {
-		str = strings.Replace(str, " ", "", -1)
-		funcName := strings.ToUpper(strings.Split(str, "(")[0])
-		switch funcName {
-		case "DIFFERENCE":
-			return "DIFFERENCE", nil
-		case "CUMULATIVE_SUM":
-			return "CUMULATIVE_SUM", nil
-		case "SIN":
-			return "SIN", nil
-		case "COS":
-			return "COS", nil
-		case "SQRT":
-			return "SQRT", nil
-		default:
-			return "", errors.New("no such functions")
-		}
-	} else {
-		return "", errors.New("wrong format")
-	}
-}
-
-func matchOperation(str string) (bool, error) {
-	str = strings.Replace(str, " ", "", -1)
-	reg := `^[_a-zA-Z]\w* *[\*\+\-\/] *[_a-zA-Z]\w*`
-	match, err := regexp.MatchString(reg, str)
-	return match, err
 }
 
 func findOperation(str string) string {
@@ -410,18 +244,33 @@ func ReplaceExpressionBoth(s, replaceRight, replaceLeft string) string {
 	return fmt.Sprintf("(%s)%s(%s)", replaceLeft, operator, replaceRight)
 }
 
-func findMapKeys(s map[string]int) []string {
-	la := []string{}
-	for key := range s {
-		la = append(la, key)
-	}
-	return la
-}
-
 func findMapValues(s map[string]int) []int {
 	la := []int{}
 	for _, val := range s {
 		la = append(la, val)
+	}
+	return la
+}
+
+func SubSliceFloat(s []int, ls []float64) []float64 {
+	max := len(ls)
+	lss := []float64{}
+	for _, ele := range s {
+		if ele < max {
+			lss = append(lss, ls[ele])
+		}
+	}
+	return lss
+}
+
+func findValuesByKeys(keys []string, mapping map[string]int) []int {
+	la := make(([]int), 0)
+	for _, key := range keys {
+		for keyy, val := range mapping {
+			if key == keyy {
+				la = append(la, val)
+			}
+		}
 	}
 	return la
 }
@@ -438,6 +287,93 @@ func MinMax(array []int) (int, int) {
 		}
 	}
 	return min, max
+}
+
+func findAdjListKeys(m map[SimpleNode][]SimpleNode) []SimpleNode {
+	ls := make([]SimpleNode, 0)
+	for key := range m {
+		ls = append(ls, key)
+	}
+	return ls
+}
+
+func matchAdjListKeys(keys []SimpleNode, exp string) (SimpleNode, error) {
+	for _, ele := range keys {
+		if ele.Expression == exp {
+			return ele, nil
+		}
+	}
+	return SimpleNode{}, errors.New("cannot find corresponding node")
+}
+
+func ContainsNode(values []SimpleNode, node SimpleNode) int {
+	for ind, ele := range values {
+		if len(node.Expression) > 0 {
+			if ele.Expression == node.Expression {
+				return ind
+			}
+		} else if ele.Numerical == node.Numerical {
+			return ind
+		}
+	}
+	return -1
+}
+
+func findEquationEquationList(eqs []Equation, node SimpleNode) (Equation, error) {
+	for _, ele := range eqs {
+		if ele.LHS == node.Expression {
+			return ele, nil
+		}
+	}
+	return Equation{}, errors.New("cannot find such equation")
+}
+
+func ContainsSimpleNode(ss []SimpleNode, s SimpleNode) int {
+	for ind, ele := range ss {
+		if ele == s {
+			return ind
+		}
+	}
+	return -1
+}
+
+func AdjDFS(adjList map[SimpleNode][]SimpleNode, startIndex SimpleNode, visited []SimpleNode, visitedList *[][]SimpleNode) {
+	visited = append(visited, startIndex)
+	for _, ele := range adjList[startIndex] {
+		if ContainsSimpleNode(visited, ele) == -1 {
+			viss := make([]SimpleNode, len(visited))
+			copy(viss, visited)
+			AdjDFS(adjList, ele, viss, visitedList)
+		}
+	}
+	*visitedList = append(*visitedList, visited)
+}
+
+func SortVisitedList(visitedList *[][]SimpleNode) {
+	vis := *visitedList
+	sort.Slice(*visitedList, func(i, j int) bool {
+		return len(vis[i]) < len(vis[j])
+	})
+}
+
+func nodePathtoList(nodePath []SimpleNode) []string {
+	ls := []string{}
+	for _, ele := range nodePath {
+		ls = append(ls, ele.Expression)
+	}
+	return ls
+}
+
+func CheckDuplicateVar(s []Equation) bool {
+	allKeys := make(map[string]bool)
+	for _, item := range s {
+		if _, value := allKeys[item.LHS]; !value {
+			allKeys[item.LHS] = true
+		} else {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Expression) findEndNode() *Expression {
@@ -480,29 +416,6 @@ func (e *Expression) findSecondEndNode() *Expression {
 			return e.LeftNode.Origin.findSecondEndNode()
 		}
 	}
-}
-
-func SubSliceFloat(s []int, ls []float64) []float64 {
-	max := len(ls)
-	lss := []float64{}
-	for _, ele := range s {
-		if ele < max {
-			lss = append(lss, ls[ele])
-		}
-	}
-	return lss
-}
-
-func findValuesByKeys(keys []string, mapping map[string]int) []int {
-	la := make(([]int), 0)
-	for _, key := range keys {
-		for keyy, val := range mapping {
-			if key == keyy {
-				la = append(la, val)
-			}
-		}
-	}
-	return la
 }
 
 func (e *Expression) MergeNode(expList ...Expression) *Expression {
@@ -606,12 +519,6 @@ func (e *Expression) GenerateFunctionMap() (func(...float64) float64, map[string
 	return e.Function, e.Mapping
 }
 
-func reverse[S ~[]E, E any](s S) {
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
-	}
-}
-
 func (q *EquationList) generateEquationsList() {
 	relation := "="
 	equationsList := make([]Equation, 0)
@@ -632,36 +539,6 @@ func (q *EquationList) generateEquationsList() {
 	} else {
 		fmt.Println("Already generated EquationList!")
 	}
-}
-
-func findAdjListKeys(m map[SimpleNode][]SimpleNode) []SimpleNode {
-	ls := make([]SimpleNode, 0)
-	for key := range m {
-		ls = append(ls, key)
-	}
-	return ls
-}
-
-func matchAdjListKeys(keys []SimpleNode, exp string) (SimpleNode, error) {
-	for _, ele := range keys {
-		if ele.Expression == exp {
-			return ele, nil
-		}
-	}
-	return SimpleNode{}, errors.New("cannot find corresponding node")
-}
-
-func ContainsNode(values []SimpleNode, node SimpleNode) int {
-	for ind, ele := range values {
-		if len(node.Expression) > 0 {
-			if ele.Expression == node.Expression {
-				return ind
-			}
-		} else if ele.Numerical == node.Numerical {
-			return ind
-		}
-	}
-	return -1
 }
 
 func (q *EquationList) GenerateAdjList() {
@@ -736,43 +613,6 @@ func (q *EquationList) GenerateAdjList() {
 	q.StartNode = allNode[len(allNode)-1]
 }
 
-func findEquationEquationList(eqs []Equation, node SimpleNode) (Equation, error) {
-	for _, ele := range eqs {
-		if ele.LHS == node.Expression {
-			return ele, nil
-		}
-	}
-	return Equation{}, errors.New("cannot find such equation")
-}
-
-func ContainsSimpleNode(ss []SimpleNode, s SimpleNode) int {
-	for ind, ele := range ss {
-		if ele == s {
-			return ind
-		}
-	}
-	return -1
-}
-
-func AdjDFS(adjList map[SimpleNode][]SimpleNode, startIndex SimpleNode, visited []SimpleNode, visitedList *[][]SimpleNode) {
-	visited = append(visited, startIndex)
-	for _, ele := range adjList[startIndex] {
-		if ContainsSimpleNode(visited, ele) == -1 {
-			viss := make([]SimpleNode, len(visited))
-			copy(viss, visited)
-			AdjDFS(adjList, ele, viss, visitedList)
-		}
-	}
-	*visitedList = append(*visitedList, visited)
-}
-
-func SortVisitedList(visitedList *[][]SimpleNode) {
-	vis := *visitedList
-	sort.Slice(*visitedList, func(i, j int) bool {
-		return len(vis[i]) < len(vis[j])
-	})
-}
-
 func (q *EquationList) GenerateExpression() *Expression {
 	start := q.StartNode
 	startEqu, err := findEquationEquationList(q.EquationsList, start)
@@ -810,32 +650,9 @@ func (q *EquationList) GenerateExpression() *Expression {
 	return e
 }
 
-func nodePathtoList(nodePath []SimpleNode) []string {
-	ls := []string{}
-	for _, ele := range nodePath {
-		ls = append(ls, ele.Expression)
-	}
-	return ls
-}
-
-func CompareSlice(s []string, s2 []string) bool {
-	if len(s) != len(s2) {
-		return false
-	}
-	for ind, ele := range s {
-		if ele != s2[ind] {
-			return false
-		}
-	}
-	return true
-}
-
 func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *Expression {
-	ssss := nodePathtoList(nodePath)
-	fmt.Println("nodePathtoList", ssss)
 	r := ex
 	for ind, ele := range nodePath {
-		fmt.Println(ex, "INITIAL")
 		if len(r.LeftNode.Uid) == 0 && len(r.RightNode.Uid) == 0 {
 			start := q.StartNode
 			startEqu, err := findEquationEquationList(q.EquationsList, start)
@@ -935,103 +752,21 @@ func (q *EquationList) GenerateNew(ex *Expression) *Expression {
 	visitedList := [][]SimpleNode{}
 	AdjDFS(q.AdjList, q.StartNode, []SimpleNode{}, &visitedList)
 	SortVisitedList(&visitedList)
-	for ind, ele := range visitedList {
+	for _, ele := range visitedList {
 		q.AddChildNodeNew(ex, ele)
-		sfs, _ := json.Marshal(ex)
-		fmt.Println(string(sfs), ind, "result")
 	}
 	return ex
 }
 
-func (q *EquationList) generateChildNode() error {
-	if q.Graph == nil {
-		res, err := GenerateExpression(q.EquationsList[0].RHS)
-		if err != nil {
-			return err
-		}
-		q.Graph = &res
-		q.EquationsList = q.EquationsList[1:]
-	} else {
-		equ := q.EquationsList[0]
-		res, err := GenerateExpression(equ.RHS)
-		if err != nil {
-			return err
-		}
-		if len(q.Graph.LeftNode.Expression) > 0 && q.Graph.LeftNode.Expression == equ.LHS {
-			q.Graph.LeftNode.Origin = &res
-		} else if len(q.Graph.RightNode.Expression) > 0 && q.Graph.RightNode.Expression == equ.LHS {
-			q.Graph.RightNode.Origin = &res
-		} else if len(q.Graph.LeftNode.Expression) == 0 {
-			f, err := strconv.ParseFloat(equ.LHS, 64)
-			if err != nil {
-				return err
-			}
-			if q.Graph.LeftNode.Numerical == f {
-				q.Graph.LeftNode.Origin = &res
-			}
-		} else if len(q.Graph.RightNode.Expression) == 0 {
-			f, err := strconv.ParseFloat(equ.LHS, 64)
-			if err != nil {
-				return err
-			}
-			if q.Graph.RightNode.Numerical == f {
-				q.Graph.RightNode.Origin = &res
-			}
-		} else {
-			return errors.New("errorrrrrrrrrrrrrr")
-		}
-		q.EquationsList = q.EquationsList[1:]
-	}
-	return nil
-}
-
-func CheckDuplicate[T string | int](s []T) bool {
-	allKeys := make(map[T]bool)
-	for _, item := range s {
-		if _, value := allKeys[item]; !value {
-			allKeys[item] = true
-		} else {
-			return true
-		}
-	}
-	return false
-}
-
-func CheckDuplicateVar(s []Equation) bool {
-	allKeys := make(map[string]bool)
-	for _, item := range s {
-		if _, value := allKeys[item.LHS]; !value {
-			allKeys[item.LHS] = true
-		} else {
-			return true
-		}
-	}
-	return false
-}
-
 func main() {
-
-	// f, m, _ := gen.Generator([]string{"c=b+a", "d=y/c", "e=a+d", "f=e+d"})
-	// fmt.Println(f([]float64{1, 2, 3}...), m)
-
 	d := EquationList{
 		Equations: []string{"c=b+a", "d=y/c", "e=a+d", "f=e+d"},
 	}
 	d.generateEquationsList()
 	fmt.Println(d.EquationsList, "EquationsList")
-	fmt.Println(CheckDuplicateVar(d.EquationsList), "gbksea")
-	fmt.Println(d)
 	d.GenerateAdjList()
 	exxe := &Expression{}
 	d.GenerateNew(exxe)
 	ffff, mmm := exxe.GenerateFunctionMap()
 	fmt.Println(ffff([]float64{1, 2, 3}...), mmm)
-	// sfs, _ := json.Marshal(exxe)
-	// fmt.Println(string(sfs))
-
-
-	// visitedList := [][]SimpleNode{}
-	// AdjDFS(d.AdjList, d.StartNode, []SimpleNode{}, &visitedList)
-	// SortVisitedList(&visitedList)
-	// fmt.Println(visitedList)
 }

@@ -4,12 +4,13 @@ import (
 	// "encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"math"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 func ExtractExpParenthesis(s string) string {
@@ -90,25 +91,6 @@ func RemoveRecuParenthesis(s string) []string {
 			ind++
 		} else {
 			newVar := fmt.Sprintf("EXPP%v", ind)
-			ls = append(ls, fmt.Sprintf("%s=%s", newVar, s))
-			break
-		}
-	}
-	return ls
-}
-
-func RemoveParenthesis(s string) []string {
-	ls := make([]string, 0)
-	ind := 0
-	for {
-		if ContainParenthesis(s) {
-			s1 := ExtractExpParenthesis(s)
-			newVar := fmt.Sprintf("a%v", ind)
-			s = strings.Replace(s, s1, newVar, 1)
-			ls = append(ls, fmt.Sprintf("%s=%s", newVar, s1))
-			ind++
-		} else {
-			newVar := fmt.Sprintf("a%v", ind)
 			ls = append(ls, fmt.Sprintf("%s=%s", newVar, s))
 			break
 		}
@@ -304,97 +286,6 @@ func reverse[S ~[]E, E any](s S) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
 	}
-}
-
-func GenerateExpression(str string) (Expression, error) {
-	str = strings.Replace(str, " ", "", -1)
-	reg1 := `^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+) *[\*\+\-\/] *[_a-zA-Z]\w*$`
-	reg2 := `^[_a-zA-Z]\w* *[\*\+\-\/] *[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)$`
-	reg3 := `^[_a-zA-Z]\w* *[\*\+\-\/] *[_a-zA-Z]\w*`
-	for ind, ele := range []string{reg1, reg2, reg3} {
-		match, err := regexp.MatchString(ele, str)
-		if err != nil {
-			return Expression{}, err
-		}
-		if match {
-			if ind == 0 || ind == 1 {
-				res, err := regexp.Compile(`[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)`)
-				if err != nil {
-					return Expression{}, err
-				}
-				match := res.FindAllString(str, 1)
-				val, err := strconv.ParseFloat(match[0], 64)
-				if err != nil {
-					return Expression{}, err
-				}
-				res2, err2 := regexp.Compile(`[\*\+\-\/]`)
-				if err2 != nil {
-					return Expression{}, err
-				}
-				match2 := res2.FindAllString(str, 1)
-				res3, err3 := regexp.Compile(`[_a-zA-Z]\w*`)
-				if err3 != nil {
-					return Expression{}, err
-				}
-				match3 := res3.FindAllString(str, 1)
-				f1, f2 := findFunction(match2[0])
-				uid1 := uuid.New().String()
-				uid2 := uuid.New().String()
-				if ind == 0 {
-					return Expression{
-						RightNode: Node{
-							Uid:       uid1,
-							Numerical: val,
-						},
-						Operation: match2[0],
-						LeftNode: Node{
-							Uid:        uid2,
-							Expression: match3[0],
-						},
-						Mapping:       map[string]int{match3[0]: 0},
-						Function:      f1,
-						LocalFunction: f2,
-					}, nil
-				} else {
-					return Expression{
-						LeftNode: Node{
-							Uid:       uuid.New().String(),
-							Numerical: val,
-						},
-						Operation: match2[0],
-						RightNode: Node{
-							Uid:        uuid.New().String(),
-							Expression: match3[0],
-						},
-						Mapping:       map[string]int{match3[0]: 0},
-						Function:      f1,
-						LocalFunction: f2,
-					}, nil
-				}
-			} else {
-				res2, err2 := regexp.Compile(`[\*\+\-\/]`)
-				if err2 != nil {
-					return Expression{}, err
-				}
-				match2 := res2.FindAllString(str, 1)
-				f1, f2 := findFunction(match2[0])
-				return Expression{
-					RightNode: Node{
-						Uid:        uuid.New().String(),
-						Expression: strings.Split(str, match2[0])[0],
-					},
-					Operation: match2[0],
-					LeftNode: Node{
-						Uid:        uuid.New().String(),
-						Expression: strings.Split(str, match2[0])[1],
-					},
-					Function:      f1,
-					LocalFunction: f2,
-				}, nil
-			}
-		}
-	}
-	return Expression{}, errors.New("not match")
 }
 
 func strContains(s []string, e string) int {
@@ -1076,4 +967,23 @@ func (F *Function) GenerateFunctions(s, name string) error {
 	} else {
 		return err
 	}
+}
+
+func (F *Function) UseFunction(input map[string]float64) (float64, error) {
+	keys := findMapKeysSorted(F.Mapping)
+	sort.Slice(keys, func(i, j int) bool { return F.Mapping[keys[i]] < F.Mapping[keys[j]] })
+	ls := []float64{}
+	for _, ele := range keys {
+		val, exist := input[ele]
+		if exist {
+			ls = append(ls, val)
+		} else {
+			return math.NaN(), errors.New(fmt.Sprintf("input map doesnt contain key: %v", val))
+		}
+	}
+	res := F.Func(ls...)
+	if math.IsNaN(res) {
+		return math.NaN(), errors.New("function is not initialized yet")
+	}
+	return F.Func(ls...), nil
 }

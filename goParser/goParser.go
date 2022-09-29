@@ -986,3 +986,95 @@ func Generator(equaLs []string) (func(...float64) float64, map[string]int, error
 	functions, mapping := exxe.GenerateFunctionMap()
 	return functions, d.uidToExpression(mapping), nil
 }
+
+type Function struct {
+	Name    string                   `json:"name"`
+	Func    func(...float64) float64 `json:"-"`
+	Mapping map[string]int           `json:"-"`
+	Uid     string                   `json:"uid"`
+}
+
+type FunctionStore struct {
+	UserName string      `json:"username"`
+	UserId   string      `json:"userid"`
+	Methods  []*Function `json:"methods"`
+}
+
+func (S *FunctionStore) RemoveFunctionByName(name string) error {
+	s := S.GetFunctionByName(name)
+	if s == -1 {
+		return errors.New(fmt.Sprintf("cannot delete function by name: %s", name))
+	}
+	S.Methods = append(S.Methods[:s], S.Methods[s+1:]...)
+	return nil
+}
+
+func (S *FunctionStore) GetFunctionByName(name string) int {
+	for ind, ele := range S.Methods {
+		if ele.Name == name {
+			return ind
+		}
+	}
+	return -1
+}
+
+func (F *Function) ValidName() error {
+	pattern := `^[_a-zA-Z]\w*`
+	res, err := regexp.Compile(pattern)
+	if err != nil {
+		return err
+	}
+	if len(res.FindAllString(F.Name, 1)) == 0 {
+		err := errors.New("wrong name format, Can't save function!!")
+		fmt.Println(err)
+		return err
+	} else {
+		return nil
+	}
+}
+
+func (F *Function) SaveFunctions(f func(...float64) float64, m map[string]int, uid, name string) error {
+	F.Func = f
+	F.Mapping = m
+	F.Uid = uid
+	F.Name = name
+	err := F.ValidName()
+	if err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func SplitStringToFloat(s string) ([]float64, error) {
+	ls := make([]float64, 0)
+	ss := strings.Split(s, ",")
+	for _, ele := range ss {
+		pattern := `[+-]?([0-9]*[.])?[0-9]+`
+		res, err := regexp.Compile(pattern)
+		if err != nil {
+			return []float64{}, err
+		}
+		ele = res.FindAllString(ele, 1)[0]
+		f, err := strconv.ParseFloat(ele, 64)
+		if err != nil {
+			return []float64{}, err
+		}
+		ls = append(ls, f)
+	}
+	return ls, nil
+}
+
+func (F *Function) GenerateFunctions(s, name string) error {
+	f, m, err := Generator(ExpressionGenerator(s))
+	if err == nil {
+		uid := uuid.New().String()
+		err := F.SaveFunctions(f, m, uid, name)
+		if err != nil {
+			return err
+		}
+		return nil
+	} else {
+		return err
+	}
+}

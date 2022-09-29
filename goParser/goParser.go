@@ -156,7 +156,7 @@ func SplitRecuMultiExpression(s string, ini int) ([]string, error) {
 	}
 	multiDivioper := `[_a-zA-Z]\w* *[\*\/] *[_a-zA-Z]\w*`
 	sInit := strings.Split(s, "=")[0]
-	s =strings.Split(s, "=")[1]
+	s = strings.Split(s, "=")[1]
 	matchStr := make([]string, 0)
 	ind := 0
 	for {
@@ -188,7 +188,7 @@ func SplitRecuMultiExpression(s string, ini int) ([]string, error) {
 	return matchStr, nil
 }
 
-func SplitRecuAddExpression(s string, ini , init2 int) ([]string, error) {
+func SplitRecuAddExpression(s string, ini, init2 int) ([]string, error) {
 	if strings.Index(s, "+") == -1 && strings.Index(s, "-") == -1 {
 		return []string{s}, nil
 	}

@@ -2,34 +2,61 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	parser "go-parser/goparser"
 	"math"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
-	"regexp"
-	"github.com/google/uuid"
 )
 
 type Function struct {
+	Name    string
 	Func    func(...float64) float64
 	Mapping map[string]int
 	Uid     string
 }
 
-func (F *Function) SaveFunctions(f func(...float64) float64, m map[string]int, uid string) {
+func (F *Function) ValidName() error {
+	pattern := `^[_a-zA-Z]\w*`
+	res, err := regexp.Compile(pattern)
+	if err != nil {
+		return err
+	}
+	if len(res.FindAllString(F.Name, 1)) == 0 {
+		err := errors.New("wrong name format, Can't save function!!")
+		fmt.Println(err)
+		return err
+	} else {
+		return nil
+	}
+}
+
+func (F *Function) SaveFunctions(f func(...float64) float64, m map[string]int, uid, name string) error {
 	F.Func = f
 	F.Mapping = m
 	F.Uid = uid
+	F.Name = name
+	err := F.ValidName()
+	if err != nil {
+		return err
+	} else {
+		return nil
+	}
 }
 
-func (F *Function) GenerateFunctions(s string) error {
+func (F *Function) GenerateFunctions(s, name string) error {
 	s1 := parser.ExpressionGenerator(s)
 	f, m, err := parser.Generator(s1)
 	if err == nil {
 		uid := uuid.New().String()
-		F.SaveFunctions(f, m, uid)
+		err := F.SaveFunctions(f, m, uid, name)
+		if err != nil {
+			return err
+		}
 		return nil
 	} else {
 		return err
@@ -59,7 +86,7 @@ func main() {
 	Fu := &Function{
 		Func: func(f ...float64) float64 { return math.NaN() },
 	}
-	Fu.GenerateFunctions("a*c/((v+e)-(g+t)*r/(r+t))+t")
+	Fu.GenerateFunctions("a*c/((v+e)-(g+t)*r/(r+t))+t", "2test")
 	for {
 		mm := Fu.Mapping
 		fmt.Print(fmt.Sprintf("%v number: ", len(mm)))

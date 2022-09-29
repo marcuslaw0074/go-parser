@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
 	"github.com/google/uuid"
 )
 
@@ -99,14 +98,14 @@ func RemoveRecuParenthesis(s string) []string {
 }
 
 func SplitMultiExpression(s string) (string, error) {
-	multiDivioper := `[_a-zA-Z]\w* *[\*\/] *[_a-zA-Z]\w*`
+	pattern := `[_a-zA-Z]\w* *[\*\/] *[_a-zA-Z]\w*`
 	matchStr := make([]string, 0)
-	match, err := regexp.MatchString(multiDivioper, s)
+	match, err := regexp.MatchString(pattern, s)
 	if err != nil {
 		return "", err
 	}
 	if match {
-		res, err := regexp.Compile(multiDivioper)
+		res, err := regexp.Compile(pattern)
 		if err != nil {
 			return "", err
 		}
@@ -116,14 +115,14 @@ func SplitMultiExpression(s string) (string, error) {
 }
 
 func SplitAddExpression(s string) (string, error) {
-	multiDivioper := `[_a-zA-Z]\w* *[\+\-] *[_a-zA-Z]\w*`
+	pattern := `[_a-zA-Z]\w* *[\+\-] *[_a-zA-Z]\w*`
 	matchStr := make([]string, 0)
-	match, err := regexp.MatchString(multiDivioper, s)
+	match, err := regexp.MatchString(pattern, s)
 	if err != nil {
 		return "", err
 	}
 	if match {
-		res, err := regexp.Compile(multiDivioper)
+		res, err := regexp.Compile(pattern)
 		if err != nil {
 			return "", err
 		}
@@ -136,13 +135,13 @@ func SplitRecuMultiExpression(s string, ini int) ([]string, error) {
 	if strings.Index(s, "*") == -1 && strings.Index(s, "/") == -1 {
 		return []string{s}, nil
 	}
-	multiDivioper := `[_a-zA-Z]\w* *[\*\/] *[_a-zA-Z]\w*`
+	pattern := `[_a-zA-Z]\w* *[\*\/] *[_a-zA-Z]\w*`
 	sInit := strings.Split(s, "=")[0]
 	s = strings.Split(s, "=")[1]
 	matchStr := make([]string, 0)
 	ind := 0
 	for {
-		match, err := regexp.MatchString(multiDivioper, s)
+		match, err := regexp.MatchString(pattern, s)
 		if err != nil {
 			return matchStr, err
 		}
@@ -176,11 +175,11 @@ func SplitRecuAddExpression(s string, ini, init2 int) ([]string, error) {
 	}
 	sInit := strings.Split(s, "=")[0]
 	s = strings.Split(s, "=")[1]
-	multiDivioper := `[_a-zA-Z]\w* *[\+\-] *[_a-zA-Z]\w*`
+	pattern := `[_a-zA-Z]\w* *[\+\-] *[_a-zA-Z]\w*`
 	matchStr := make([]string, 0)
 	ind := 0
 	for {
-		match, err := regexp.MatchString(multiDivioper, s)
+		match, err := regexp.MatchString(pattern, s)
 		if err != nil {
 			return matchStr, err
 		}
@@ -878,16 +877,37 @@ func FunctionGenerator(equaLs []string) (func(...float64) float64, map[string]in
 }
 
 type Function struct {
-	Name    string                   `json:"name"`
-	Func    func(...float64) float64 `json:"-"`
-	Mapping map[string]int           `json:"-"`
-	Uid     string                   `json:"uid"`
+	Name       string                   `json:"name"`
+	Expression string                   `json:"expression"`
+	Func       func(...float64) float64 `json:"-"`
+	Mapping    map[string]int           `json:"-"`
+	Uid        string                   `json:"uid"`
 }
 
 type FunctionStore struct {
 	UserName string      `json:"username"`
 	UserId   string      `json:"userid"`
 	Methods  []*Function `json:"methods"`
+}
+
+func (S *FunctionStore) AddFunctionByName(s, name string) error {
+	if S.GetFunctionByName(name) > -1 {
+		return errors.New("function name already exists, please enter another function name.")
+	}
+	F := &Function{}
+	err := F.GenerateFunctions(s, name)
+	if err != nil {
+		return err
+	} else {
+		S.Methods = append(S.Methods, F)
+		return nil
+	}
+}
+
+func (S *FunctionStore) AddFunction(F *Function) error {
+	name := F.Name
+	s := F.Expression
+	return S.AddFunctionByName(s, name)
 }
 
 func (S *FunctionStore) RemoveFunctionByName(name string) error {
@@ -908,6 +928,18 @@ func (S *FunctionStore) GetFunctionByName(name string) int {
 	return -1
 }
 
+func (S *FunctionStore) UpdateFunctionByName(s, name string) error {
+	index := S.GetFunctionByName(name)
+	F := S.Methods[index]
+	f, m, err := FunctionGenerator(ExpressionGenerator(s))
+	if err != nil {
+		return err
+	}
+	F.Func = f
+	F.Mapping = m
+	return nil
+}
+
 func (F *Function) ValidName() error {
 	pattern := `^[_a-zA-Z]\w*`
 	res, err := regexp.Compile(pattern)
@@ -923,11 +955,12 @@ func (F *Function) ValidName() error {
 	}
 }
 
-func (F *Function) SaveFunctions(f func(...float64) float64, m map[string]int, uid, name string) error {
+func (F *Function) SaveFunctions(f func(...float64) float64, m map[string]int, uid, name, exp string) error {
 	F.Func = f
 	F.Mapping = m
 	F.Uid = uid
 	F.Name = name
+	F.Expression = exp
 	err := F.ValidName()
 	if err != nil {
 		return err
@@ -959,7 +992,7 @@ func (F *Function) GenerateFunctions(s, name string) error {
 	f, m, err := FunctionGenerator(ExpressionGenerator(s))
 	if err == nil {
 		uid := uuid.New().String()
-		err := F.SaveFunctions(f, m, uid, name)
+		err := F.SaveFunctions(f, m, uid, name, s)
 		if err != nil {
 			return err
 		}
@@ -967,6 +1000,10 @@ func (F *Function) GenerateFunctions(s, name string) error {
 	} else {
 		return err
 	}
+}
+
+func (F *Function) UpdateFunctions(s, name string) error {
+	return nil
 }
 
 func (F *Function) UseFunction(input map[string]float64) (float64, error) {

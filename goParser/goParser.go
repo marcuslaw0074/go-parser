@@ -971,7 +971,7 @@ func (q *EquationList) uidToExpression(m map[string]int) map[string]int {
 	return mm
 }
 
-func Generator(equaLs []string) (func(...float64) float64, map[string]int, error) {
+func FunctionGenerator(equaLs []string) (func(...float64) float64, map[string]int, error) {
 	d := EquationList{
 		Equations: equaLs,
 	}
@@ -979,7 +979,6 @@ func Generator(equaLs []string) (func(...float64) float64, map[string]int, error
 	if CheckDuplicateVar(d.EquationsList) {
 		return func(f ...float64) float64 { return math.NaN() }, make(map[string]int), errors.New("equations contains deplicated variables")
 	}
-	d.GenerateAdjList()
 	d.GenerateAdjList()
 	exxe := &Expression{}
 	d.GenerateNew(exxe)
@@ -1066,7 +1065,7 @@ func SplitStringToFloat(s string) ([]float64, error) {
 }
 
 func (F *Function) GenerateFunctions(s, name string) error {
-	f, m, err := Generator(ExpressionGenerator(s))
+	f, m, err := FunctionGenerator(ExpressionGenerator(s))
 	if err == nil {
 		uid := uuid.New().String()
 		err := F.SaveFunctions(f, m, uid, name)

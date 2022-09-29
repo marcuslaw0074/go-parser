@@ -92,13 +92,13 @@ func RemoveRecuParenthesis(s string) []string {
 	for {
 		if ContainParenthesis(s) {
 			s1 := ExtractMaxDepthParenthesis(s)
-			newVar := fmt.Sprintf("a%v", ind)
+			newVar := fmt.Sprintf("EXPP%v", ind)
 			s = strings.Replace(s, s1, newVar, 1)
 			fmt.Println(s1, s)
-			ls = append(ls, fmt.Sprintf("%s=%s", newVar, s1))
+			ls = append(ls, fmt.Sprintf("%s=%s", newVar, s1[1:len(s1)-1]))
 			ind++
 		} else {
-			newVar := fmt.Sprintf("a%v", ind)
+			newVar := fmt.Sprintf("EXPP%v", ind)
 			ls = append(ls, fmt.Sprintf("%s=%s", newVar, s))
 			break
 		}
@@ -159,8 +159,13 @@ func SplitAddExpression(s string) (string, error) {
 	return matchStr[0], nil
 }
 
-func SplitRecuMultiExpression(s string) ([]string, error) {
+func SplitRecuMultiExpression(s string, ini int) ([]string, error) {
+	if strings.Index(s, "*") == -1 && strings.Index(s, "/") == -1 {
+		return []string{s}, nil
+	}
 	multiDivioper := `[_a-zA-Z]\w* *[\*\/] *[_a-zA-Z]\w*`
+	sInit := strings.Split(s, "=")[0]
+	s =strings.Split(s, "=")[1]
 	matchStr := make([]string, 0)
 	ind := 0
 	for {
@@ -173,7 +178,7 @@ func SplitRecuMultiExpression(s string) ([]string, error) {
 			if err != nil {
 				return matchStr, err
 			}
-			newVar := fmt.Sprintf("MULTI_DIVID%v", ind)
+			newVar := fmt.Sprintf("MULTI_DIVID%v_%v", ini, ind)
 			s = strings.Replace(s, s1, newVar, 1)
 			matchStr = append(matchStr, fmt.Sprintf("%s=%s", newVar, s1))
 		} else {
@@ -181,17 +186,27 @@ func SplitRecuMultiExpression(s string) ([]string, error) {
 		}
 		ind++
 	}
-	newVar := fmt.Sprintf("MULTI_DIVID%v", ind)
-	matchStr = append(matchStr, fmt.Sprintf("%s=%s", newVar, s))
-	// fmt.Println(s)
+	patt := `[_a-zA-Z]\w* *[\+\-] *[_a-zA-Z]\w*`
+	match, _ := regexp.MatchString(patt, s)
+	if match {
+		newVar := fmt.Sprintf("MULTI_DIVID%v_%v", ini, ind)
+		matchStr = append(matchStr, fmt.Sprintf("%s=%s", newVar, s))
+	}
+	lhs := strings.Split(matchStr[len(matchStr)-1], "=")[0]
+	matchStr[len(matchStr)-1] = strings.Replace(matchStr[len(matchStr)-1], lhs, sInit, 1)
 	return matchStr, nil
 }
 
-func SplitRecuAddExpression(s string, ini int) ([]string, error) {
-	fmt.Println(s)
+func SplitRecuAddExpression(s string, ini , init2 int) ([]string, error) {
+	if strings.Index(s, "+") == -1 && strings.Index(s, "-") == -1 {
+		return []string{s}, nil
+	}
+	sInit := strings.Split(s, "=")[0]
+	s = strings.Split(s, "=")[1]
 	multiDivioper := `[_a-zA-Z]\w* *[\+\-] *[_a-zA-Z]\w*`
 	matchStr := make([]string, 0)
 	ind := 0
+	fmt.Println(s, ini, init2, 43434)
 	for {
 		match, err := regexp.MatchString(multiDivioper, s)
 		if err != nil {
@@ -202,7 +217,7 @@ func SplitRecuAddExpression(s string, ini int) ([]string, error) {
 			if err != nil {
 				return matchStr, err
 			}
-			newVar := fmt.Sprintf("ADD_SUB%v_%v", ini, ind)
+			newVar := fmt.Sprintf("ADD_SUB%v_%v_%v", ini, init2, ind)
 			fmt.Println(newVar)
 			s = strings.Replace(s, s1, newVar, 1)
 			matchStr = append(matchStr, fmt.Sprintf("%s=%s", newVar, s1))
@@ -211,21 +226,24 @@ func SplitRecuAddExpression(s string, ini int) ([]string, error) {
 		}
 		ind++
 	}
-	newVar := fmt.Sprintf("ADD_SUB%v_%v", ini, ind)
-	matchStr = append(matchStr, fmt.Sprintf("%s=%s", newVar, s))
+	// newVar := fmt.Sprintf("ADD_SUB%v_%v_%v", ini, init2, ind)
+	// matchStr = append(matchStr, fmt.Sprintf("%s=%s", newVar, s))
 	// fmt.Println(s)
+	lhs := strings.Split(matchStr[len(matchStr)-1], "=")[0]
+	matchStr[len(matchStr)-1] = strings.Replace(matchStr[len(matchStr)-1], lhs, sInit, 1)
 	return matchStr, nil
 }
 
-func SplitRecuExpression(s string) ([]string, error) {
-	matchStr, err := SplitRecuMultiExpression(s)
+func SplitRecuExpression(s string, ini int) ([]string, error) {
+	matchStr, err := SplitRecuMultiExpression(s, ini)
+	fmt.Println(matchStr, "dada")
 	newMatchStr := []string{}
 	if err != nil {
 		return make([]string, 0), err
 	} else {
 		for ind, ele := range matchStr {
 			fmt.Println(ele, ind)
-			newAdd, err := SplitRecuAddExpression(strings.Split(ele, "=")[1], ind)
+			newAdd, err := SplitRecuAddExpression(ele, ind, ini)
 			if err != nil {
 				return make([]string, 0), err
 			}
@@ -235,10 +253,26 @@ func SplitRecuExpression(s string) ([]string, error) {
 	return newMatchStr, nil
 }
 
+func ExpressionGenerator(s string) []string {
+	stLs := RemoveRecuParenthesis(s)
+	fmt.Println(stLs)
+	ls := make([]string, 0)
+	for ind, ele := range stLs {
+		fmt.Println(strings.Split(ele, "=")[1], "dfd")
+		res, err := SplitRecuExpression(ele, ind)
+		if err == nil {
+			ls = append(ls, res...)
+		}
+	}
+	return ls
+}
+
 func main() {
 
-	s0 := "a*c*v" //"(dd+ f+  b)"//"(a+(c*f))+(1+b)"
-	fmt.Println(SplitRecuExpression(s0))
+	s0 := "a*c/((v+e)-(g+t)*r)+t" //"a*c/((v+e)-(g+t)*r)+t" //"(dd+ f+  b)"//"(a+(c*f))+(1+b)"
+	fmt.Println(ExpressionGenerator(s0))
+	// fmt.Println(SplitRecuExpression(s0, 1))
+	// fmt.Println(SplitRecuExpression(s0))
 	// fmt.Println(SplitMultiExpression(s0))
-	fmt.Println(RemoveRecuParenthesis(s0))
+	// fmt.Println(RemoveRecuParenthesis(s0))
 }

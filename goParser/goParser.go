@@ -4,12 +4,12 @@ import (
 	// "encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"math"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"github.com/google/uuid"
 )
 
 func ExtractExpParenthesis(s string) string {

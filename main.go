@@ -19,10 +19,10 @@ var (
 )
 
 type Trans struct {
-	Uid   string `json:"uid"`
-	RegexExp string `json:"regexExp"`
+	Uid        string `json:"uid"`
+	RegexExp   string `json:"regexExp"`
 	RegexLocal string `json:"regexLocal"`
-	Name  string `json:"name"`
+	Name       string `json:"name"`
 }
 
 type Transs struct {

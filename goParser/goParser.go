@@ -219,6 +219,7 @@ func SplitRecuExpression(s string, ini int) ([]string, error) {
 
 func ExpressionGenerator(s string) []string {
 	stLs := RemoveRecuParenthesis(s)
+	fmt.Println(stLs)
 	ls := make([]string, 0)
 	for ind, ele := range stLs {
 		res, err := SplitRecuExpression(ele, ind)
@@ -314,6 +315,21 @@ func findFunction(operator string) (func(...float64) float64, func(float64, floa
 		return func(f ...float64) float64 { return f[0] * f[1] }, func(f1, f2 float64) float64 { return f1 * f2 }
 	case "/":
 		return func(f ...float64) float64 { return f[0] / f[1] }, func(f1, f2 float64) float64 { return f1 / f2 }
+	default:
+		return func(f ...float64) float64 { return math.NaN() }, func(f1, f2 float64) float64 { return math.NaN() }
+	}
+}
+
+func findFunctionTwin(operator string) (func(...float64) float64, func(float64, float64) float64) {
+	switch operator {
+	case "+":
+		return func(f ...float64) float64 { return 2 * f[0] }, func(f1, f2 float64) float64 { return 2 * f1 }
+	case "-":
+		return func(f ...float64) float64 { return 0 }, func(f1, f2 float64) float64 { return 0 }
+	case "*":
+		return func(f ...float64) float64 { return f[0] * f[0] }, func(f1, f2 float64) float64 { return f1 * f1 }
+	case "/":
+		return func(f ...float64) float64 { return 1 }, func(f1, f2 float64) float64 { return 1 }
 	default:
 		return func(f ...float64) float64 { return math.NaN() }, func(f1, f2 float64) float64 { return math.NaN() }
 	}
@@ -703,28 +719,41 @@ func (q *EquationList) GenerateAdjList() {
 					Numerical: num2,
 				}
 			} else {
-				valnodeRight = SimpleNode{
-					Uid:        uuid.New().String(),
-					Expression: ele.RightVar,
+				if ele.RightVar == ele.LeftVar {
+					uid := uuid.New().String()
+					valnodeRight = SimpleNode{
+						Uid:        uid,
+						Expression: ele.RightVar,
+					}
+					valnodeLeft = SimpleNode{
+						Uid:        uid,
+						Expression: ele.LeftVar,
+					}
+				} else {
+					valnodeRight = SimpleNode{
+						Uid:        uuid.New().String(),
+						Expression: ele.RightVar,
+					}
+					valnodeLeft = SimpleNode{
+						Uid:        uuid.New().String(),
+						Expression: ele.LeftVar,
+					}
 				}
-				valnodeLeft = SimpleNode{
-					Uid:        uuid.New().String(),
-					Expression: ele.LeftVar,
-				}
+
 			}
-			indKey := ContainsNode(allNode, keynode)
 			indValL := ContainsNode(allNode, valnodeLeft)
-			indValR := ContainsNode(allNode, valnodeRight)
 			if indValL > -1 {
 				valnodeLeft = allNode[indValL]
 			} else {
 				allNode = append(allNode, valnodeLeft)
 			}
+			indValR := ContainsNode(allNode, valnodeRight)
 			if indValR > -1 {
 				valnodeRight = allNode[indValR]
 			} else {
 				allNode = append(allNode, valnodeRight)
 			}
+			indKey := ContainsNode(allNode, keynode)
 			if indKey > -1 {
 				keynode = allNode[indKey]
 			} else {
@@ -740,6 +769,48 @@ func (q *EquationList) GenerateAdjList() {
 	q.StartNode = allNode[len(allNode)-1]
 }
 
+func ExpressionChild(children []SimpleNode, equa Equation) Expression {
+	if children[0].Uid == children[1].Uid {
+		f1, f2 := findFunctionTwin(equa.Operation)
+		return Expression{
+			RightNode: Node{
+				Uid:        children[1].Uid,
+				Expression: children[1].Expression,
+				Numerical:  children[1].Numerical,
+			},
+			LeftNode: Node{
+				Uid:        children[0].Uid,
+				Expression: children[0].Expression,
+				Numerical:  children[0].Numerical,
+			},
+			Operation:       equa.Operation,
+			WholeExpression: equa.RHS,
+			Mapping:         map[string]int{children[0].Uid: 0},
+			Function:        f1,
+			LocalFunction:   f2,
+		}
+	} else {
+		f1, f2 := findFunction(equa.Operation)
+		return Expression{
+			RightNode: Node{
+				Uid:        children[1].Uid,
+				Expression: children[1].Expression,
+				Numerical:  children[1].Numerical,
+			},
+			LeftNode: Node{
+				Uid:        children[0].Uid,
+				Expression: children[0].Expression,
+				Numerical:  children[0].Numerical,
+			},
+			Operation:       equa.Operation,
+			WholeExpression: equa.RHS,
+			Mapping:         map[string]int{children[0].Uid: 0, children[1].Uid: 1},
+			Function:        f1,
+			LocalFunction:   f2,
+		}
+	}
+}
+
 func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *Expression {
 	r := ex
 	for ind, ele := range nodePath {
@@ -749,24 +820,7 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *E
 			if err != nil {
 				return ex
 			}
-			f1, f2 := findFunction(startEqu.Operation)
-			*ex = Expression{
-				RightNode: Node{
-					Uid:        q.AdjList[start][1].Uid,
-					Expression: q.AdjList[start][1].Expression,
-					Numerical:  q.AdjList[start][1].Numerical,
-				},
-				LeftNode: Node{
-					Uid:        q.AdjList[start][0].Uid,
-					Expression: q.AdjList[start][0].Expression,
-					Numerical:  q.AdjList[start][0].Numerical,
-				},
-				Operation:       startEqu.Operation,
-				WholeExpression: startEqu.RHS,
-				Mapping:         map[string]int{q.AdjList[start][0].Uid: 0, q.AdjList[start][1].Uid: 1},
-				Function:        f1,
-				LocalFunction:   f2,
-			}
+			*ex = ExpressionChild(q.AdjList[start], startEqu)
 		} else {
 			if ind == 0 {
 				continue
@@ -782,25 +836,8 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *E
 						if len(childrenNodes) == 0 {
 							return ex
 						}
-
-						f1, f2 := findFunction(currentNode.Operation)
-						r.LeftNode.Origin = &Expression{
-							RightNode: Node{
-								Uid:        childrenNodes[1].Uid,
-								Expression: childrenNodes[1].Expression,
-								Numerical:  childrenNodes[1].Numerical,
-							},
-							LeftNode: Node{
-								Uid:        childrenNodes[0].Uid,
-								Expression: childrenNodes[0].Expression,
-								Numerical:  childrenNodes[0].Numerical,
-							},
-							Operation:       currentNode.Operation,
-							WholeExpression: currentNode.RHS,
-							Function:        f1,
-							LocalFunction:   f2,
-							Mapping:         map[string]int{childrenNodes[0].Uid: 0, childrenNodes[1].Uid: 1},
-						}
+						res := ExpressionChild(childrenNodes, currentNode)
+						r.LeftNode.Origin = &res
 					} else {
 						r = r.LeftNode.Origin
 					}
@@ -810,24 +847,8 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *E
 						if len(childrenNodes) == 0 {
 							return ex
 						}
-						f1, f2 := findFunction(currentNode.Operation)
-						r.RightNode.Origin = &Expression{
-							RightNode: Node{
-								Uid:        childrenNodes[1].Uid,
-								Expression: childrenNodes[1].Expression,
-								Numerical:  childrenNodes[1].Numerical,
-							},
-							LeftNode: Node{
-								Uid:        childrenNodes[0].Uid,
-								Expression: childrenNodes[0].Expression,
-								Numerical:  childrenNodes[0].Numerical,
-							},
-							Operation:       currentNode.Operation,
-							WholeExpression: currentNode.RHS,
-							Function:        f1,
-							LocalFunction:   f2,
-							Mapping:         map[string]int{childrenNodes[0].Uid: 0, childrenNodes[1].Uid: 1},
-						}
+						res := ExpressionChild(childrenNodes, currentNode)
+						r.RightNode.Origin = &res
 					} else {
 						r = r.RightNode.Origin
 					}
@@ -1001,6 +1022,19 @@ func (F *Function) GenerateFunctions(s, name string) error {
 	}
 }
 
+func GenerateFloatSlice(m map[string]int, f map[string]float64) []float64 {
+	s := findMapKeysSorted(m)
+	k := []float64{}
+	for _, ele := range s {
+		k = append(k, f[ele])
+	}
+	return k
+}
+
+func (F *Function) CallFunctionByMap(f map[string]float64) float64 {
+	return F.Func(GenerateFloatSlice(F.Mapping, f)...)
+}
+
 func (F *Function) UpdateFunctions(s, name string) error {
 	return nil
 }
@@ -1022,4 +1056,84 @@ func (F *Function) UseFunction(input map[string]float64) (float64, error) {
 		return math.NaN(), errors.New("function is not initialized yet")
 	}
 	return F.Func(ls...), nil
+}
+
+const (
+	LE  = "<"
+	GE  = ">"
+	LEQ = "<="
+	GEQ = ">="
+)
+
+type InEquaExpression struct {
+	Inequality string                `json:"inequality"`
+	Func       func(...float64) bool `json:"-"`
+	Mapping    map[string]int        `json:"-"`
+	Operator   string                `json:"operator"`
+	Expression string                `json:"expression"`
+	Result     bool                  `json:"result"`
+}
+
+type InEquaExpressions struct {
+}
+
+func GenerateFunctions(sts []string) {
+	m := map[string]*InEquaExpression{}
+	for _, ele := range sts {
+		con := false
+		for _, el := range []string{LEQ, GEQ, LE, GE} {
+			if strings.Contains(ele, el) {
+				m[strings.Split(ele, "=")[0]] = &InEquaExpression{
+					Inequality: strings.Split(ele, "=")[1],
+				}
+				m[strings.Split(ele, "=")[0]].GenerateFunction()
+				con = true
+			}
+		}
+		if !con {
+			m[strings.Split(ele, "=")[0]] = &InEquaExpression{
+				Expression: strings.Split(ele, "=")[1],
+			}
+		}
+	}
+}
+
+func (i *InEquaExpression) GenerateFunction() error {
+	s := []string{}
+	for _, ele := range []string{LEQ, GEQ, LE, GE} {
+		s = strings.Split(i.Inequality, ele)
+		if len(s) > 1 {
+			i.Operator = ele
+			break
+		}
+	}
+	if len(s) != 2 {
+		return errors.New("more than one inequality operator")
+	}
+	fu, m, err := FunctionGenerator(ExpressionGenerator(s[1]))
+	if err != nil {
+		return err
+	}
+	_, max := MinMax(findMapValues(m))
+	m[s[0]] = max + 1
+	i.Mapping = m
+	i.Func = func(f ...float64) bool {
+		switch i.Operator {
+		case LEQ:
+			return f[len(f)-1] <= fu(f[:len(f)-1]...)
+		case GEQ:
+			return f[len(f)-1] >= fu(f[:len(f)-1]...)
+		case LE:
+			return f[len(f)-1] < fu(f[:len(f)-1]...)
+		case GE:
+			return f[len(f)-1] > fu(f[:len(f)-1]...)
+		default:
+			panic("invalid operator")
+		}
+	}
+	return nil
+}
+
+func (i *InEquaExpression) CallFunctionByMap(f map[string]float64) bool {
+	return i.Func(GenerateFloatSlice(i.Mapping, f)...)
 }

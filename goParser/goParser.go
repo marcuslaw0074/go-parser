@@ -1027,6 +1027,7 @@ func GenerateFloatSlice(m map[string]int, f map[string]float64) []float64 {
 	for _, ele := range s {
 		k = append(k, f[ele])
 	}
+	fmt.Println("GenerateFloatSlice", k, s, m, f)
 	return k
 }
 
@@ -1081,10 +1082,6 @@ type InEquaExpressions struct {
 	Result       bool                  `json:"result"`
 }
 
-func (i *InEquaExpressions) Generator() {
-
-}
-
 func GenerateFunctions(sts []string) {
 	m := map[string]*InEquaExpression{}
 	for _, ele := range sts {
@@ -1128,12 +1125,16 @@ func (i *InEquaExpression) GenerateFunction() error {
 	i.Func = func(f ...float64) bool {
 		switch i.Operator {
 		case LEQ:
+			fmt.Println(f[len(f)-1] ,LEQ, fu(f[:len(f)-1]...))
 			return f[len(f)-1] <= fu(f[:len(f)-1]...)
 		case GEQ:
+			fmt.Println(f[len(f)-1] ,GEQ, fu(f[:len(f)-1]...))
 			return f[len(f)-1] >= fu(f[:len(f)-1]...)
 		case LE:
+			fmt.Println(f[len(f)-1] ,LE, fu(f[:len(f)-1]...))
 			return f[len(f)-1] < fu(f[:len(f)-1]...)
 		case GE:
+			fmt.Println(f[len(f)-1] ,GE, fu(f[:len(f)-1]...))
 			return f[len(f)-1] > fu(f[:len(f)-1]...)
 		default:
 			panic("invalid operator")
@@ -1331,6 +1332,7 @@ func GenerateIneq(m map[string]string) *InEquaExpressions {
 			for o, s := range i.Mapping {
 				g[o] = f[s]
 			}
+			fmt.Println(i.Mapping, "i.Mapping")
 			return i.CallFunctionByMap(g)
 		}
 		ii.Inequalities = append(ii.Inequalities, *j)
@@ -1391,5 +1393,11 @@ func EnterExpression(s string) (func(...float64) bool, map[string]int, error) {
 			}
 		}
 		return H.Inequalities[len(H.Inequalities)-1].Func, H.Mapping, nil
+	}
+}
+
+func CallFunctionByMap(f func(...float64) bool,m map[string]int) func(map[string]float64) bool {
+	return func(mm map[string]float64) bool {
+		return f(GenerateFloatSlice(m, mm)...)
 	}
 }

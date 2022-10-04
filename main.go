@@ -1,95 +1,22 @@
 package main
 
 import (
-	"bufio"
+	// "bufio"
 	"fmt"
 	"go-parser/goparser"
-	"math"
-	"os"
+	// "sync"
+	// "math"
+	// "os"
 	"regexp"
+	"sort"
 	"strings"
 	// "time"
-	"unsafe"
-
+	// "unsafe"
 	// "github.com/google/uuid"
 	// "strconv"
 )
 
-var (
-	Transformation map[string]string = map[string]string{
-		"diff":   `(?i)diff *\([_a-z0-9\+\-\*\/ \(\)]+\)`,
-		"cumsum": `(?i)cumsum *\([_a-z0-9\+\-\*\/ \(\)]+\)`,
-		"ma":     `(?i)ma *\([_a-z0-9\+\-\*\/, \(\)]+\)`,
-	}
-)
-
-type Trans struct {
-	Uid        string `json:"uid"`
-	RegexExp   string `json:"regexExp"`
-	RegexLocal string `json:"regexLocal"`
-	Name       string `json:"name"`
-}
-
-type Transs struct {
-	Transformation []Trans  `json:"transformation"`
-	EquationList   []string `json:"equationList"`
-}
-
-func (T *Transs) GenerateEquationList(s string) {
-	la := make([]string, 0)
-	for _, ele := range T.Transformation {
-		match, err := regexp.MatchString(ele.RegexExp, s)
-		if err == nil {
-			if match {
-				// reg := regexp.MustCompile(ele.RegexLocal)
-				// res := reg.ReplaceAllString(s, "${1}")
-				reg := regexp.MustCompile(ele.RegexExp)
-				matchStr := reg.FindAllString(s, -1)
-				fmt.Println(matchStr, 343)
-				for _, el := range matchStr {
-					la = append(la, el)
-				}
-				res := reg.ReplaceAllString(s, "a")
-				fmt.Println(res)
-			}
-		}
-	}
-	T.EquationList = la
-}
-
-func ptrToFunction(ptr uintptr) *func(...float64) float64 {
-	p := unsafe.Pointer(ptr)
-	fmt.Println(p, "pointer")
-	return (*func(...float64) float64)(p)
-}
-
 ///////////////////////////////////////////////////
-
-
-
-func ExtractExpParenthesis(s string) string {
-	ndx := 0
-	firstParenthesis := strings.Index(s, "(")
-	balance := 1
-	lastParenthesis := 0
-	for ndx < len(s) {
-		if ndx == firstParenthesis {
-			ndx++
-			continue
-		}
-		if string(s[ndx]) == "(" {
-			balance++
-		} else if string(s[ndx]) == ")" {
-			balance--
-		}
-		if balance == 0 {
-			lastParenthesis = ndx
-			break
-		}
-		ndx++
-	}
-	return s[firstParenthesis : lastParenthesis+1]
-}
 
 func MaxDepthParenthesis(s string) (int, int) {
 	balance := 1
@@ -146,11 +73,10 @@ func ContainAndOr(s string) bool {
 	}
 }
 
-func RemoveRecuParenthesis(s string) []string {
+func RemoveRecuAndOrParenthesis(s string) []string {
 	ls := make([]string, 0)
 	ind := 0
 	for {
-		fmt.Println(ContainAndOr(s), s)
 		if ContainParenthesis(s) && ContainAndOr(s) {
 			s1 := ExtractMaxDepthParenthesis(s)
 			newVar := fmt.Sprintf("EXPP%v", ind)
@@ -166,132 +92,94 @@ func RemoveRecuParenthesis(s string) []string {
 	return ls
 }
 
-func SplitMultiExpression(s string) (string, error) {
-	pattern := `[_a-zA-Z]\w* *[\*\/] *[_a-zA-Z]\w*`
-	matchStr := make([]string, 0)
-	match, err := regexp.MatchString(pattern, s)
-	if err != nil {
-		return "", err
-	}
-	if match {
-		res, err := regexp.Compile(pattern)
-		if err != nil {
-			return "", err
+func ExtractBalanceParenthesis(s string) string {
+	balance := 0
+	for ind, ele := range s {
+		if string(ele) == "(" {
+			balance++
+		} else if string(ele) == ")" {
+			balance--
 		}
-		matchStr = res.FindAllString(s, 1)
-	}
-	return matchStr[0], nil
-}
-
-func SplitAddExpression(s string) (string, error) {
-	pattern := `[_a-zA-Z]\w* *[\+\-] *[_a-zA-Z]\w*`
-	matchStr := make([]string, 0)
-	match, err := regexp.MatchString(pattern, s)
-	if err != nil {
-		return "", err
-	}
-	if match {
-		res, err := regexp.Compile(pattern)
-		if err != nil {
-			return "", err
-		}
-		matchStr = res.FindAllString(s, 1)
-	}
-	return matchStr[0], nil
-}
-
-func SplitRecuMultiExpression(s string, ini int) ([]string, error) {
-	if strings.Index(s, "*") == -1 && strings.Index(s, "/") == -1 {
-		return []string{s}, nil
-	}
-	pattern := `[_a-zA-Z]\w* *[\*\/] *[_a-zA-Z]\w*`
-	sInit := strings.Split(s, "=")[0]
-	s = strings.Split(s, "=")[1]
-	matchStr := make([]string, 0)
-	ind := 0
-	for {
-		match, err := regexp.MatchString(pattern, s)
-		if err != nil {
-			return matchStr, err
-		}
-		if match {
-			s1, err := SplitMultiExpression(s)
-			if err != nil {
-				return matchStr, err
-			}
-			newVar := fmt.Sprintf("MULTI_DIVID%v_%v", ini, ind)
-			s = strings.Replace(s, s1, newVar, 1)
-			matchStr = append(matchStr, fmt.Sprintf("%s=%s", newVar, s1))
-		} else {
+		if balance == 0 {
+			s = s[:ind+1]
 			break
 		}
-		ind++
 	}
-	patt := `[_a-zA-Z]\w* *[\+\-] *[_a-zA-Z]\w*`
-	match, _ := regexp.MatchString(patt, s)
-	if match {
-		newVar := fmt.Sprintf("MULTI_DIVID%v_%v", ini, ind)
-		matchStr = append(matchStr, fmt.Sprintf("%s=%s", newVar, s))
-	}
-	lhs := strings.Split(matchStr[len(matchStr)-1], "=")[0]
-	matchStr[len(matchStr)-1] = strings.Replace(matchStr[len(matchStr)-1], lhs, sInit, 1)
-	return matchStr, nil
+	return s
 }
 
-func SplitRecuAddExpression(s string, ini, init2 int) ([]string, error) {
-	if strings.Index(s, "+") == -1 && strings.Index(s, "-") == -1 {
-		return []string{s}, nil
-	}
-	sInit := strings.Split(s, "=")[0]
-	s = strings.Split(s, "=")[1]
-	pattern := `[_a-zA-Z]\w* *[\+\-] *[_a-zA-Z]\w*`
-	matchStr := make([]string, 0)
-	ind := 0
-	for {
-		match, err := regexp.MatchString(pattern, s)
-		if err != nil {
-			return matchStr, err
-		}
-		if match {
-			s1, err := SplitAddExpression(s)
-			if err != nil {
-				return matchStr, err
-			}
-			newVar := fmt.Sprintf("ADD_SUB%v_%v_%v", ini, init2, ind)
-			s = strings.Replace(s, s1, newVar, 1)
-			matchStr = append(matchStr, fmt.Sprintf("%s=%s", newVar, s1))
-		} else {
-			break
-		}
-		ind++
-	}
-	lhs := strings.Split(matchStr[len(matchStr)-1], "=")[0]
-	matchStr[len(matchStr)-1] = strings.Replace(matchStr[len(matchStr)-1], lhs, sInit, 1)
-	return matchStr, nil
-}
-
-func SplitRecuExpression(s string, ini int) ([]string, error) {
-	matchStr, err := SplitRecuMultiExpression(s, ini)
-	newMatchStr := []string{}
+func ReplaceInequality(s string) (string, map[string]string, error) {
+	pattern := `\( *[_a-zA-Z]\w*[\>\<][\= ]*[_a-zA-Z \(\)\+\-\*\/]*\)`
+	res, err := regexp.Compile(pattern)
+	m := map[string]string{}
 	if err != nil {
-		return make([]string, 0), err
+		return "", m, err
 	} else {
+		matchStr := res.FindAllString(s, -1)
 		for ind, ele := range matchStr {
-			newAdd, err := SplitRecuAddExpression(ele, ind, ini)
-			if err != nil {
-				return make([]string, 0), err
-			}
-			newMatchStr = append(newMatchStr, newAdd...)
+			ele = ExtractBalanceParenthesis(ele)
+			key := fmt.Sprintf("Inequa_%v", ind)
+			m[key] = ele[1 : len(ele)-1]
+			s = strings.ReplaceAll(s, ele, key)
 		}
+		return s, m, nil
 	}
-	return newMatchStr, nil
 }
 
-func ExpressionGenerator(s string) []string {
-	stLs := RemoveRecuParenthesis(s)
+func SplitRecuAndOrExpression(s string, ini, init2 int) ([]string, error) {
+	if strings.Index(strings.ToLower(s), "and") == -1 && strings.Index(strings.ToLower(s), "or") == -1 {
+		return []string{s}, nil
+	}
+	sInit := strings.Split(s, "=")[0]
+	s = strings.Split(s, "=")[1]
+	pattern := `(?i)[_a-z]\w* *(and|or) *[_a-z]\w*`
+	matchStr := make([]string, 0)
+	ind := 0
+	for {
+		match, err := regexp.MatchString(pattern, s)
+		if err != nil {
+			return matchStr, err
+		}
+		if match {
+			s1, err := SplitAndOrExpression(s)
+			if err != nil {
+				return matchStr, err
+			}
+			newVar := fmt.Sprintf("ADD_SUB%v", ind)
+			s = strings.Replace(s, s1, newVar, 1)
+			matchStr = append(matchStr, fmt.Sprintf("%s=%s", newVar, s1))
+		} else {
+			break
+		}
+		ind++
+	}
+	lhs := strings.Split(matchStr[len(matchStr)-1], "=")[0]
+	matchStr[len(matchStr)-1] = strings.Replace(matchStr[len(matchStr)-1], lhs, sInit, 1)
+	return matchStr, nil
+}
+
+func SplitAndOrExpression(s string) (string, error) {
+	pattern := `(?i)[_a-z]\w* *(and|or) *[_a-z]\w*`
+	matchStr := make([]string, 0)
+	match, err := regexp.MatchString(pattern, s)
+	if err != nil {
+		return "", err
+	}
+	if match {
+		res, err := regexp.Compile(pattern)
+		if err != nil {
+			return "", err
+		}
+		matchStr = res.FindAllString(s, 1)
+	}
+	return matchStr[0], nil
+}
+
+func InequalityExpressionGenerator(s string) []string {
+	stLs := RemoveRecuAndOrParenthesis(s)
 	ls := make([]string, 0)
 	for ind, ele := range stLs {
-		res, err := SplitRecuExpression(ele, ind)
+		res, err := SplitRecuAndOrExpression(ele, ind, 0)
 		if err == nil {
 			ls = append(ls, res...)
 		}
@@ -299,41 +187,254 @@ func ExpressionGenerator(s string) []string {
 	return ls
 }
 
+func findMapKeysSorted(s map[string]int) []string {
+	la := []string{}
+	for key := range s {
+		la = append(la, key)
+	}
+	sort.Slice(la, func(i, j int) bool { return s[la[i]] < s[la[j]] })
+	return la
+}
+
+func findMapValues(s map[string]int) []int {
+	la := []int{}
+	for _, val := range s {
+		la = append(la, val)
+	}
+	return la
+}
+
+func ContainInt(l []int, k int) int {
+	for ind, ele := range l {
+		if ele == k {
+			return ind
+		}
+	}
+	return -1
+}
+
+func ExtractSubSlice(i []float64, j []int) []float64 {
+	k := []float64{}
+	for _, ele := range j {
+		k = append(k, i[ele])
+	}
+	return k
+}
+
+func GenerateIneq(m map[string]string) *goparser.InEquaExpressions {
+	ls := []string{}
+	for key := range m {
+		ls = append(ls, key)
+	}
+	ii := &goparser.InEquaExpressions{
+		Inequalities: []goparser.InEquaExpression{},
+	}
+	sort.Strings(ls)
+	newMap := map[string]int{}
+	for _, ele := range ls {
+		i := &goparser.InEquaExpression{
+			Inequality: m[ele],
+		}
+		j := &goparser.InEquaExpression{
+			Inequality: m[ele],
+			Expression: ele,
+		}
+		i.GenerateFunction()
+		for key := range i.Mapping {
+			values := findMapValues(newMap)
+			_, exists := newMap[key]
+			if !exists {
+				oldVval := i.Mapping[key]
+				if ContainInt(values, oldVval) > -1 {
+					_, max := goparser.MinMax(values)
+					newMap[key] = max + 1
+				} else {
+					newMap[key] = oldVval
+				}
+			}
+		}
+		for key := range i.Mapping {
+			i.Mapping[key] = newMap[key]
+		}
+		j.Mapping = i.Mapping
+		j.Func = func(f ...float64) bool {
+			g := map[string]float64{}
+			for o, s := range i.Mapping {
+				g[o] = f[s]
+			}
+			return i.CallFunctionByMap(g)
+		}
+		ii.Inequalities = append(ii.Inequalities, *j)
+	}
+	ii.Mapping = newMap
+	return ii
+}
+
+func EnterExpression(s string) (func(...float64) bool, map[string]int, error) {
+	res, m, err := ReplaceInequality("((f>a+(b+v)) and (g>b+v)) or (u>b+v*o)")
+	if err != nil {
+		return func(f ...float64) bool { return false }, map[string]int{}, err
+	} else {
+		res2 := InequalityExpressionGenerator(res)
+		H := GenerateIneq(m)
+		for _, ele := range res2 {
+			exp := strings.Split(ele, "=")[0]
+			s := strings.Split(ele, "=")[1]
+			if strings.Index(s, " and ") > -1 {
+				s0 := strings.Split(s, " and ")[0]
+				s1 := strings.Split(s, " and ")[1]
+				ss0 := goparser.InEquaExpression{}
+				ss1 := goparser.InEquaExpression{}
+				for _, el := range H.Inequalities {
+					if el.Expression == s0 {
+						ss0 = el
+					}
+					if el.Expression == s1 {
+						ss1 = el
+					}
+				}
+				H.Inequalities = append(H.Inequalities, goparser.InEquaExpression{
+					Func: func(f ...float64) bool {
+						return ss0.Func(f...) && ss1.Func(f...)
+					},
+					Expression: exp,
+					Mapping:    H.Mapping,
+				})
+			} else if strings.Index(s, " or ") > -1 {
+				s0 := strings.Split(s, " or ")[0]
+				s1 := strings.Split(s, " or ")[1]
+				ss0 := goparser.InEquaExpression{}
+				ss1 := goparser.InEquaExpression{}
+				for _, el := range H.Inequalities {
+					if el.Expression == s0 {
+						ss0 = el
+					}
+					if el.Expression == s1 {
+						ss1 = el
+					}
+				}
+				H.Inequalities = append(H.Inequalities, goparser.InEquaExpression{
+					Func: func(f ...float64) bool {
+						return ss0.Func(f...) || ss1.Func(f...)
+					},
+					Expression: exp,
+				})
+			}
+		}
+		return H.Inequalities[len(H.Inequalities)-1].Func, H.Mapping, nil
+	}
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////
 
 func main() {
 
-	fmt.Println(ExpressionGenerator("((f>a+(b+v)) and (g>b+v)) or (u<v)"))
+	// ls := []int{}
+	// wg := sync.WaitGroup{}
+	// wg.Add(4)
+	// for ind := range []int{1,2,3,4} {
+	// 	go func (i int)  {
+	// 		ls = append(ls, i)
+	// 		wg.Done()
+	// 	}(ind)
+	// }
+	// wg.Wait()
 
-	Fu := &goparser.Function{
-		Func: func(f ...float64) float64 { return math.NaN() },
-	}
-	Fu.GenerateFunctions("b+a+b/(a*a)+c", "test")
+	// fmt.Println(ls)
 
-	fmt.Println(Fu.CallFunctionByMap(map[string]float64{"a":1, "b":2, "c":3, "d": 4}))
+	// fmt.Println(SplitRecuAndOrExpression("f=g and o and h", 1, 2))
 
-	i := &goparser.InEquaExpression{
-		Inequality:"d<b+a+b/(a*a)+c",
-	}
-	i.GenerateFunction()
-	fmt.Println(i)
-	fmt.Println(i.CallFunctionByMap(map[string]float64{"a":1, "b":2, "c":3, "d": 4}))
+	// fmt.Println(InequalityExpressionGenerator("(Inequa_0 and Inequa_1) or (Inequa_2 or (Inequa_3 and Inequa_4 and Inequa_5))"))
 
-	for {
-		mm := Fu.Mapping
-		fmt.Print(fmt.Sprintf("%v number: ", len(mm)))
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			fmt.Println("An error occured while reading input.", err)
-			return
-		}
-		input = strings.TrimSuffix(input, "\n")
-		ff, err := goparser.SplitStringToFloat(input)
-		if err == nil {
-			fmt.Println(Fu.Func(ff...), Fu.Mapping)
-		} else {
-			fmt.Println("Input not slice of float64")
-		}
-	}
+	// H := GenerateIneq(map[string]string{"Inequa_0": "f>a+(b+v)", "Inequa_1": "g>b+v", "Inequa_2": "u>b+v*o"})
+	// fmt.Println(H, 12345)
+	// fmt.Println(H.Inequalities[2].Func([]float64{1, 2, 3, 4, 5, 6, 7}...))
+
+	// fmt.Println(H.Inequalities[1].CallFunctionByMap(map[string]float64{"g":1, "b":1, "v":2}))
+	// fmt.Println(InequalityExpressionGenerator("(Inequa_0 and Inequa_1 and Inequa_4) or (Inequa_2 or Inequa_3)"))
+	// res, m, _ := ReplaceInequality("((f>a+(b+v)) and (g>b+v)) or (u>b+v*o)")
+	// res2 := InequalityExpressionGenerator(res)
+	// H := GenerateIneq(m)
+	// for _, ele := range res2 {
+	// 	exp := strings.Split(ele, "=")[0]
+	// 	s := strings.Split(ele, "=")[1]
+	// 	if strings.Index(s, " and ") > -1 {
+	// 		s0 := strings.Split(s, " and ")[0]
+	// 		s1 := strings.Split(s, " and ")[1]
+	// 		ss0 := goparser.InEquaExpression{}
+	// 		ss1 := goparser.InEquaExpression{}
+	// 		for _, el := range H.Inequalities {
+	// 			if el.Expression == s0 {
+	// 				ss0 = el
+	// 			}
+	// 			if el.Expression == s1 {
+	// 				ss1 = el
+	// 			}
+	// 		}
+	// 		H.Inequalities = append(H.Inequalities, goparser.InEquaExpression{
+	// 			Func: func(f ...float64) bool {
+	// 				return ss0.Func(f...) && ss1.Func(f...)
+	// 			},
+	// 			Expression: exp,
+	// 			Mapping:    H.Mapping,
+	// 		})
+	// 	} else if strings.Index(s, " or ") > -1 {
+	// 		s0 := strings.Split(s, " or ")[0]
+	// 		s1 := strings.Split(s, " or ")[1]
+	// 		ss0 := goparser.InEquaExpression{}
+	// 		ss1 := goparser.InEquaExpression{}
+	// 		for _, el := range H.Inequalities {
+	// 			if el.Expression == s0 {
+	// 				ss0 = el
+	// 			}
+	// 			if el.Expression == s1 {
+	// 				ss1 = el
+	// 			}
+	// 		}
+	// 		H.Inequalities = append(H.Inequalities, goparser.InEquaExpression{
+	// 			Func: func(f ...float64) bool {
+	// 				return ss0.Func(f...) || ss1.Func(f...)
+	// 			},
+	// 			Expression: exp,
+	// 		})
+	// 	}
+	// }
+	// fmt.Println(res, m, res2, H)
+	// fmt.Println(H.Mapping)
+	// fmt.Println(H.Inequalities[len(H.Inequalities)-1].Func([]float64{1, 2, 3, 4, 5, 6, 117}...))
+
+	f, m, _ := EnterExpression("((f>a+(b+v)) and (g>b+v)) or (u>b+v*o)")
+	fmt.Println(f([]float64{1, 2, 3, 4, 5, 6, 117}...), m)
+
+	// Fu := &goparser.Function{
+	// 	Func: func(f ...float64) float64 { return math.NaN() },
+	// }
+	// Fu.GenerateFunctions("b+a+b/(a*a)+c", "test")
+
+	// fmt.Println(Fu.CallFunctionByMap(map[string]float64{"a": 1, "b": 2, "c": 3, "d": 4}))
+
+	// i := &goparser.InEquaExpression{
+	// 	Inequality: "d<b+a+b/(a*a)+c",
+	// }
+	// i.GenerateFunction()
+	// fmt.Println(i)
+	// fmt.Println(i.CallFunctionByMap(map[string]float64{"a": 1, "b": 2, "c": 3, "d": 4}))
+
+	// for {
+	// 	mm := Fu.Mapping
+	// 	fmt.Print(fmt.Sprintf("%v number: ", len(mm)))
+	// 	reader := bufio.NewReader(os.Stdin)
+	// 	input, err := reader.ReadString('\n')
+	// 	if err != nil {
+	// 		fmt.Println("An error occured while reading input.", err)
+	// 		return
+	// 	}
+	// 	input = strings.TrimSuffix(input, "\n")
+	// 	ff, err := goparser.SplitStringToFloat(input)
+	// 	if err == nil {
+	// 		fmt.Println(Fu.Func(ff...), Fu.Mapping)
+	// 	} else {
+	// 		fmt.Println("Input not slice of float64")
+	// 	}
+	// }
 }

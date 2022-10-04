@@ -219,7 +219,6 @@ func SplitRecuExpression(s string, ini int) ([]string, error) {
 
 func ExpressionGenerator(s string) []string {
 	stLs := RemoveRecuParenthesis(s)
-	fmt.Println(stLs)
 	ls := make([]string, 0)
 	for ind, ele := range stLs {
 		res, err := SplitRecuExpression(ele, ind)
@@ -1075,11 +1074,15 @@ type InEquaExpression struct {
 }
 
 type InEquaExpressions struct {
-	Inequalities []InEquaExpression `json:"inequalities"`
-	Func       func(...float64) bool `json:"-"`
-	Mapping    map[string]int        `json:"-"`
-	Expression string                `json:"expression"`
-	Result     bool                  `json:"result"`
+	Inequalities []InEquaExpression    `json:"inequalities"`
+	Func         func(...float64) bool `json:"-"`
+	Mapping      map[string]int        `json:"-"`
+	Expression   string                `json:"expression"`
+	Result       bool                  `json:"result"`
+}
+
+func (i *InEquaExpressions) Generator() {
+
 }
 
 func GenerateFunctions(sts []string) {
@@ -1141,4 +1144,252 @@ func (i *InEquaExpression) GenerateFunction() error {
 
 func (i *InEquaExpression) CallFunctionByMap(f map[string]float64) bool {
 	return i.Func(GenerateFloatSlice(i.Mapping, f)...)
+}
+
+func ContainAndOr(s string) bool {
+	pattern := `(?i)[ \(\)]+(and|or)[ \(\)]+`
+	match, err := regexp.MatchString(pattern, s)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	} else if match {
+		return true
+	} else {
+		return false
+	}
+}
+
+func RemoveRecuAndOrParenthesis(s string) []string {
+	ls := make([]string, 0)
+	ind := 0
+	for {
+		if ContainParenthesis(s) && ContainAndOr(s) {
+			s1 := ExtractMaxDepthParenthesis(s)
+			newVar := fmt.Sprintf("EXPP%v", ind)
+			s = strings.Replace(s, s1, newVar, 1)
+			ls = append(ls, fmt.Sprintf("%s=%s", newVar, s1[1:len(s1)-1]))
+			ind++
+		} else {
+			newVar := fmt.Sprintf("EXPP%v", ind)
+			ls = append(ls, fmt.Sprintf("%s=%s", newVar, s))
+			break
+		}
+	}
+	return ls
+}
+
+func ExtractBalanceParenthesis(s string) string {
+	balance := 0
+	for ind, ele := range s {
+		if string(ele) == "(" {
+			balance++
+		} else if string(ele) == ")" {
+			balance--
+		}
+		if balance == 0 {
+			s = s[:ind+1]
+			break
+		}
+	}
+	return s
+}
+
+func ReplaceInequality(s string) (string, map[string]string, error) {
+	pattern := `\( *[_a-zA-Z]\w*[\>\<][\= ]*[_a-zA-Z \(\)\+\-\*\/]*\)`
+	res, err := regexp.Compile(pattern)
+	m := map[string]string{}
+	if err != nil {
+		return "", m, err
+	} else {
+		matchStr := res.FindAllString(s, -1)
+		for ind, ele := range matchStr {
+			ele = ExtractBalanceParenthesis(ele)
+			key := fmt.Sprintf("Inequa_%v", ind)
+			m[key] = ele[1 : len(ele)-1]
+			s = strings.ReplaceAll(s, ele, key)
+		}
+		return s, m, nil
+	}
+}
+
+func SplitRecuAndOrExpression(s string, ini, init2 int) ([]string, error) {
+	if strings.Index(strings.ToLower(s), "and") == -1 && strings.Index(strings.ToLower(s), "or") == -1 {
+		return []string{s}, nil
+	}
+	sInit := strings.Split(s, "=")[0]
+	s = strings.Split(s, "=")[1]
+	pattern := `(?i)[_a-z]\w* *(and|or) *[_a-z]\w*`
+	matchStr := make([]string, 0)
+	ind := 0
+	for {
+		match, err := regexp.MatchString(pattern, s)
+		if err != nil {
+			return matchStr, err
+		}
+		if match {
+			s1, err := SplitAndOrExpression(s)
+			if err != nil {
+				return matchStr, err
+			}
+			newVar := fmt.Sprintf("ADD_SUB%v", ind)
+			s = strings.Replace(s, s1, newVar, 1)
+			matchStr = append(matchStr, fmt.Sprintf("%s=%s", newVar, s1))
+		} else {
+			break
+		}
+		ind++
+	}
+	lhs := strings.Split(matchStr[len(matchStr)-1], "=")[0]
+	matchStr[len(matchStr)-1] = strings.Replace(matchStr[len(matchStr)-1], lhs, sInit, 1)
+	return matchStr, nil
+}
+
+func SplitAndOrExpression(s string) (string, error) {
+	pattern := `(?i)[_a-z]\w* *(and|or) *[_a-z]\w*`
+	matchStr := make([]string, 0)
+	match, err := regexp.MatchString(pattern, s)
+	if err != nil {
+		return "", err
+	}
+	if match {
+		res, err := regexp.Compile(pattern)
+		if err != nil {
+			return "", err
+		}
+		matchStr = res.FindAllString(s, 1)
+	}
+	return matchStr[0], nil
+}
+
+func InequalityExpressionGenerator(s string) []string {
+	stLs := RemoveRecuAndOrParenthesis(s)
+	ls := make([]string, 0)
+	for ind, ele := range stLs {
+		res, err := SplitRecuAndOrExpression(ele, ind, 0)
+		if err == nil {
+			ls = append(ls, res...)
+		}
+	}
+	return ls
+}
+
+func ContainInt(l []int, k int) int {
+	for ind, ele := range l {
+		if ele == k {
+			return ind
+		}
+	}
+	return -1
+}
+
+func ExtractSubSlice(i []float64, j []int) []float64 {
+	k := []float64{}
+	for _, ele := range j {
+		k = append(k, i[ele])
+	}
+	return k
+}
+
+func GenerateIneq(m map[string]string) *InEquaExpressions {
+	ls := []string{}
+	for key := range m {
+		ls = append(ls, key)
+	}
+	ii := &InEquaExpressions{
+		Inequalities: []InEquaExpression{},
+	}
+	sort.Strings(ls)
+	newMap := map[string]int{}
+	for _, ele := range ls {
+		i := &InEquaExpression{
+			Inequality: m[ele],
+		}
+		j := &InEquaExpression{
+			Inequality: m[ele],
+			Expression: ele,
+		}
+		i.GenerateFunction()
+		for key := range i.Mapping {
+			values := findMapValues(newMap)
+			_, exists := newMap[key]
+			if !exists {
+				oldVval := i.Mapping[key]
+				if ContainInt(values, oldVval) > -1 {
+					_, max := MinMax(values)
+					newMap[key] = max + 1
+				} else {
+					newMap[key] = oldVval
+				}
+			}
+		}
+		for key := range i.Mapping {
+			i.Mapping[key] = newMap[key]
+		}
+		j.Mapping = i.Mapping
+		j.Func = func(f ...float64) bool {
+			g := map[string]float64{}
+			for o, s := range i.Mapping {
+				g[o] = f[s]
+			}
+			return i.CallFunctionByMap(g)
+		}
+		ii.Inequalities = append(ii.Inequalities, *j)
+	}
+	ii.Mapping = newMap
+	return ii
+}
+
+func EnterExpression(s string) (func(...float64) bool, map[string]int, error) {
+	res, m, err := ReplaceInequality("((f>a+(b+v)) and (g>b+v)) or (u>b+v*o)")
+	if err != nil {
+		return func(f ...float64) bool { return false }, map[string]int{}, err
+	} else {
+		res2 := InequalityExpressionGenerator(res)
+		H := GenerateIneq(m)
+		for _, ele := range res2 {
+			exp := strings.Split(ele, "=")[0]
+			s := strings.Split(ele, "=")[1]
+			if strings.Index(s, " and ") > -1 {
+				s0 := strings.Split(s, " and ")[0]
+				s1 := strings.Split(s, " and ")[1]
+				ss0 := InEquaExpression{}
+				ss1 := InEquaExpression{}
+				for _, el := range H.Inequalities {
+					if el.Expression == s0 {
+						ss0 = el
+					}
+					if el.Expression == s1 {
+						ss1 = el
+					}
+				}
+				H.Inequalities = append(H.Inequalities, InEquaExpression{
+					Func: func(f ...float64) bool {
+						return ss0.Func(f...) && ss1.Func(f...)
+					},
+					Expression: exp,
+					Mapping:    H.Mapping,
+				})
+			} else if strings.Index(s, " or ") > -1 {
+				s0 := strings.Split(s, " or ")[0]
+				s1 := strings.Split(s, " or ")[1]
+				ss0 := InEquaExpression{}
+				ss1 := InEquaExpression{}
+				for _, el := range H.Inequalities {
+					if el.Expression == s0 {
+						ss0 = el
+					}
+					if el.Expression == s1 {
+						ss1 = el
+					}
+				}
+				H.Inequalities = append(H.Inequalities, InEquaExpression{
+					Func: func(f ...float64) bool {
+						return ss0.Func(f...) || ss1.Func(f...)
+					},
+					Expression: exp,
+				})
+			}
+		}
+		return H.Inequalities[len(H.Inequalities)-1].Func, H.Mapping, nil
+	}
 }

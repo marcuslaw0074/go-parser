@@ -133,11 +133,25 @@ func ContainParenthesis(s string) bool {
 	}
 }
 
+func ContainAndOr(s string) bool {
+	pattern := `(?i)[ \(\)]+(and|or)[ \(\)]+`
+	match, err := regexp.MatchString(pattern, s)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	} else if match {
+		return true
+	} else {
+		return false
+	}
+}
+
 func RemoveRecuParenthesis(s string) []string {
 	ls := make([]string, 0)
 	ind := 0
 	for {
-		if ContainParenthesis(s) {
+		fmt.Println(ContainAndOr(s), s)
+		if ContainParenthesis(s) && ContainAndOr(s) {
 			s1 := ExtractMaxDepthParenthesis(s)
 			newVar := fmt.Sprintf("EXPP%v", ind)
 			s = strings.Replace(s, s1, newVar, 1)
@@ -289,7 +303,7 @@ func ExpressionGenerator(s string) []string {
 
 func main() {
 
-	fmt.Println(ExpressionGenerator("((f>a+b+v) and (g>b+v)) or (u<v)"))
+	fmt.Println(ExpressionGenerator("((f>a+(b+v)) and (g>b+v)) or (u<v)"))
 
 	Fu := &goparser.Function{
 		Func: func(f ...float64) float64 { return math.NaN() },

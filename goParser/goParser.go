@@ -1075,6 +1075,11 @@ type InEquaExpression struct {
 }
 
 type InEquaExpressions struct {
+	Inequalities []InEquaExpression `json:"inequalities"`
+	Func       func(...float64) bool `json:"-"`
+	Mapping    map[string]int        `json:"-"`
+	Expression string                `json:"expression"`
+	Result     bool                  `json:"result"`
 }
 
 func GenerateFunctions(sts []string) {

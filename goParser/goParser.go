@@ -1027,7 +1027,6 @@ func GenerateFloatSlice(m map[string]int, f map[string]float64) []float64 {
 	for _, ele := range s {
 		k = append(k, f[ele])
 	}
-	fmt.Println("GenerateFloatSlice", k, s, m, f)
 	return k
 }
 
@@ -1125,16 +1124,16 @@ func (i *InEquaExpression) GenerateFunction() error {
 	i.Func = func(f ...float64) bool {
 		switch i.Operator {
 		case LEQ:
-			fmt.Println(f[len(f)-1] ,LEQ, fu(f[:len(f)-1]...))
+			// fmt.Println(f[len(f)-1] ,LEQ, fu(f[:len(f)-1]...))
 			return f[len(f)-1] <= fu(f[:len(f)-1]...)
 		case GEQ:
-			fmt.Println(f[len(f)-1] ,GEQ, fu(f[:len(f)-1]...))
+			// fmt.Println(f[len(f)-1] ,GEQ, fu(f[:len(f)-1]...))
 			return f[len(f)-1] >= fu(f[:len(f)-1]...)
 		case LE:
-			fmt.Println(f[len(f)-1] ,LE, fu(f[:len(f)-1]...))
+			// fmt.Println(f[len(f)-1] ,LE, fu(f[:len(f)-1]...))
 			return f[len(f)-1] < fu(f[:len(f)-1]...)
 		case GE:
-			fmt.Println(f[len(f)-1] ,GE, fu(f[:len(f)-1]...))
+			// fmt.Println(f[len(f)-1] ,GE, fu(f[:len(f)-1]...))
 			return f[len(f)-1] > fu(f[:len(f)-1]...)
 		default:
 			panic("invalid operator")
@@ -1151,7 +1150,6 @@ func ContainAndOr(s string) bool {
 	pattern := `(?i)[ \(\)]+(and|or)[ \(\)]+`
 	match, err := regexp.MatchString(pattern, s)
 	if err != nil {
-		fmt.Println(err)
 		return false
 	} else if match {
 		return true
@@ -1291,6 +1289,14 @@ func ExtractSubSlice(i []float64, j []int) []float64 {
 	return k
 }
 
+func CopyMap(old map[string]int) map[string]int {
+	l := map[string]int{}
+	for key, val := range old {
+		l[key] = val
+	}
+	return l
+}
+
 func GenerateIneq(m map[string]string) *InEquaExpressions {
 	ls := []string{}
 	for key := range m {
@@ -1310,7 +1316,8 @@ func GenerateIneq(m map[string]string) *InEquaExpressions {
 			Expression: ele,
 		}
 		i.GenerateFunction()
-		for key := range i.Mapping {
+		keys := findMapKeysSorted(i.Mapping)
+		for _, key := range keys {
 			values := findMapValues(newMap)
 			_, exists := newMap[key]
 			if !exists {
@@ -1323,17 +1330,16 @@ func GenerateIneq(m map[string]string) *InEquaExpressions {
 				}
 			}
 		}
+		j.Mapping = CopyMap(i.Mapping)
 		for key := range i.Mapping {
 			i.Mapping[key] = newMap[key]
 		}
-		j.Mapping = i.Mapping
 		j.Func = func(f ...float64) bool {
 			g := map[string]float64{}
 			for o, s := range i.Mapping {
 				g[o] = f[s]
 			}
-			fmt.Println(i.Mapping, "i.Mapping")
-			return i.CallFunctionByMap(g)
+			return i.Func(GenerateFloatSlice(j.Mapping, g)...)
 		}
 		ii.Inequalities = append(ii.Inequalities, *j)
 	}
@@ -1342,7 +1348,7 @@ func GenerateIneq(m map[string]string) *InEquaExpressions {
 }
 
 func EnterExpression(s string) (func(...float64) bool, map[string]int, error) {
-	res, m, err := ReplaceInequality("((f>a+(b+v)) and (g>b+v)) or (u>b+v*o)")
+	res, m, err := ReplaceInequality(s)
 	if err != nil {
 		return func(f ...float64) bool { return false }, map[string]int{}, err
 	} else {
@@ -1396,7 +1402,7 @@ func EnterExpression(s string) (func(...float64) bool, map[string]int, error) {
 	}
 }
 
-func CallFunctionByMap(f func(...float64) bool,m map[string]int) func(map[string]float64) bool {
+func CallFunctionByMap(f func(...float64) bool, m map[string]int) func(map[string]float64) bool {
 	return func(mm map[string]float64) bool {
 		return f(GenerateFloatSlice(m, mm)...)
 	}

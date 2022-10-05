@@ -221,6 +221,14 @@ func ExtractSubSlice(i []float64, j []int) []float64 {
 	return k
 }
 
+func CopyMap(old map[string]int) map[string]int {
+	l := map[string]int{}
+	for key, val := range old {
+		l[key] = val
+	}
+	return l
+}
+
 func GenerateIneq(m map[string]string) *goparser.InEquaExpressions {
 	ls := []string{}
 	for key := range m {
@@ -241,6 +249,7 @@ func GenerateIneq(m map[string]string) *goparser.InEquaExpressions {
 			Expression: ele,
 		}
 		i.GenerateFunction()
+		fmt.Println(i.Mapping, "DDDDDDDDD")
 		keys := findMapKeysSorted(i.Mapping)
 		for _, key := range keys {
 			values := findMapValues(newMap)
@@ -256,17 +265,19 @@ func GenerateIneq(m map[string]string) *goparser.InEquaExpressions {
 			}
 		}
 		fmt.Println(m[ele], i.Mapping, "HHHHHHHH")
+		j.Mapping = CopyMap(i.Mapping)
 		for key := range i.Mapping {
 			i.Mapping[key] = newMap[key]
 		}
-		j.Mapping = i.Mapping
 		j.Func = func(f ...float64) bool {
+			fmt.Println(f, "FFFFFFFFFFFFFFFFF")
 			g := map[string]float64{}
 			for o, s := range i.Mapping {
 				g[o] = f[s]
 			}
-			fmt.Println(i.Mapping, g, "i.Mapping")
-			return i.CallFunctionByMap(g)
+			// i.Mapping = j.Mapping
+			fmt.Println(i.Mapping, j.Mapping, g, "i.Mapping")
+			return i.Func(goparser.GenerateFloatSlice(j.Mapping, g)...)
 		}
 		ii.Inequalities = append(ii.Inequalities, *j)
 	}
@@ -299,7 +310,7 @@ func EnterExpression(s string) (func(...float64) bool, map[string]int, error) {
 				}
 				H.Inequalities = append(H.Inequalities, goparser.InEquaExpression{
 					Func: func(f ...float64) bool {
-						fmt.Println(f, ss0.Func(f...), "and", ss1.Func(f...))
+						fmt.Println(f, ss0.Func(f...), "and", ss1.Func(f...), f)
 						return ss0.Func(f...) && ss1.Func(f...)
 					},
 					Expression: exp,
@@ -320,7 +331,7 @@ func EnterExpression(s string) (func(...float64) bool, map[string]int, error) {
 				}
 				H.Inequalities = append(H.Inequalities, goparser.InEquaExpression{
 					Func: func(f ...float64) bool {
-						fmt.Println(f, ss0.Func(f...), "or", ss1.Func(f...))
+						fmt.Println(f, ss0.Func(f...), "or", ss1.Func(f...), f)
 						return ss0.Func(f...) || ss1.Func(f...)
 					},
 					Expression: exp,
@@ -418,7 +429,7 @@ func main() {
 
 	f, m, _ := EnterExpression("((f>a+(b+v)) and (g>b+v)) or (u>b+v*o)")
 	ff := CallFunctionByMap(f, m)
-	fmt.Println(ff(map[string]float64{"a": 3, "b": 1, "f": 4, "g": 5, "o": 6, "u": 11, "v": 2}))
+	fmt.Println(ff(map[string]float64{"a": 3, "b": 1, "f": 34, "g": 8, "o": 6, "u": 12, "v": 2}))
 	// fmt.Println(f([]float64{2, 10, 3, 4, 5, 12, 7}...), m)
 
 	// Fu := &goparser.Function{
@@ -428,12 +439,12 @@ func main() {
 
 	// fmt.Println(Fu.CallFunctionByMap(map[string]float64{"b": 1, "v": 2, "o": 6}))
 
-	i := &goparser.InEquaExpression{
-		Inequality: "u>b+v*o",
-	}
-	i.GenerateFunction()
-	fmt.Println(i)
-	fmt.Println(i.CallFunctionByMap(map[string]float64{"b": 1, "v": 2, "o": 6, "u": 11}))
+	// i := &goparser.InEquaExpression{
+	// 	Inequality: "u>b+v*o",
+	// }
+	// i.GenerateFunction()
+	// fmt.Println(i)
+	// fmt.Println(i.CallFunctionByMap(map[string]float64{"b": 1, "v": 2, "o": 6, "u": 11}))
 
 	// for {
 	// 	mm := Fu.Mapping

@@ -18,9 +18,39 @@ import (
 
 ///////////////////////////////////////////////////
 
-///////////////////////////////////////////////////////////////////////////////////////
+// func keys[K comparable, V any](m map[K]V) []K {
+// 	keys := make([]K, 0, len(m))
+// 	for k := range m {
+// 		keys = append(keys, k)
+// 	}
+// 	return keys
+// }
+
+// type s[T any] struct {
+// 	t T
+// }
+
+// type MyConstraint interface {
+// 	int | int8 | int16 | int32 | int64
+// }
+
+// func MyFunc[T MyConstraint](input T) {
+// 	// ...
+// }
 
 func main() {
+
+	// MyFunc[int8](1)
+
+
+	// vegetableSet := map[string]bool{
+	// 	"potato":  true,
+	// 	"cabbage": true,
+	// 	"carrot":  true,
+	// }
+	// myInstance := s[int]{t: 1}
+	// mm := keys(vegetableSet)
+	// fmt.Println(mm, myInstance)
 
 	// ls := []int{}
 	// wg := sync.WaitGroup{}
@@ -95,19 +125,19 @@ func main() {
 	// fmt.Println(res, m, res2, H)
 	// fmt.Println(H.Mapping)
 	// fmt.Println(H.Inequalities[len(H.Inequalities)-1].Func([]float64{1, 2, 3, 4, 5, 6, 117}...))
+	// fmt.Println(goparser.ReplaceInequality("((f>a+(b+v)*a+a/b/a/a) and (g>b+v)) or (u>b+v*o)"))
 
+	// f, m, _ := goparser.EnterExpression("((f>a+(b+v)*a+a/b/a/a) and (g>b+v)) or (u>b+v*o)")
+	// ff := goparser.CallFunctionByMap(f, m)
+	// fmt.Println(ff(map[string]float64{"a": 3, "b": 1, "f": 13, "g": 8, "o": 6, "u": 12, "v": 2}))
 
-		fmt.Println(goparser.ReplaceInequality("((f>a+(b+v)*a+a/b/a/a) and (g>b+v)) or (u>b+v*o)"))
-	f, m, _ := goparser.EnterExpression("((f>a+(b+v)*a+a/b/a/a) and (g>b+v)) or (u>b+v*o)")
-	ff := goparser.CallFunctionByMap(f, m)
-	fmt.Println(ff(map[string]float64{"a": 3, "b": 1, "f": 13, "g": 8, "o": 6, "u": 12, "v": 2}))
+	ee, _ := goparser.InputExpression("((f>a+(b+v)*a+a/b/a/a) and (g>b+v)) or (u>b+v*o)")
+	fmt.Println(ee.CallFunctionByMap(map[string]float64{"a": 3, "b": 1, "f": 13, "g": 8, "o": 6, "u": 12, "v": 2}))
 
-	// Fu := &goparser.Function{
-	// 	Func: func(f ...float64) float64 { return math.NaN() },
-	// }
-	// Fu.GenerateFunctions("a+(b+v)*a+a/b/a/a", "test")
+	Fu := &goparser.Function{}
+	Fu.GenerateFunctions("a+(b+v)*a+a/b/a/a", "test")
 
-	// fmt.Println(Fu.CallFunctionByMap(map[string]float64{"a": 3, "b": 1, "v": 2}))
+	fmt.Println(Fu.CallFunctionByMap(map[string]float64{"a": 3, "b": 1, "v": 2}))
 
 	// i := &goparser.InEquaExpression{
 	// 	Inequality: "u>b+v*o",

@@ -1347,6 +1347,33 @@ func GenerateIneq(m map[string]string) *InEquaExpressions {
 	return ii
 }
 
+type Funcs interface {
+	func(...float64) bool | func(map[string]float64) bool
+}
+
+type Express struct {
+	Function    func(...float64) bool
+	Mapping     map[string]int
+	FunctionMap func(map[string]float64) bool
+}
+
+func InputExpression(s string) (*Express, error) {
+	e := &Express{}
+	f, m, err := EnterExpression(s)
+	if err != nil {
+		return e, err
+	} else {
+		e.Function = f
+		e.Mapping = m
+		e.FunctionMap = CallFunctionByMap(f, m)
+		return e, nil
+	}
+}
+
+func (e *Express) CallFunctionByMap(f map[string]float64) bool {
+	return e.FunctionMap(f)
+}
+
 func EnterExpression(s string) (func(...float64) bool, map[string]int, error) {
 	res, m, err := ReplaceInequality(s)
 	if err != nil {

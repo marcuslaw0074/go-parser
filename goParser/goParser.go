@@ -286,9 +286,9 @@ func reverse[S ~[]E, E any](s S) {
 	}
 }
 
-func strContains(s []string, e string) int {
-	for ind, a := range s {
-		if a == e {
+func Contain[K comparable](l []K, k K) int {
+	for ind, ele := range l {
+		if ele == k {
 			return ind
 		}
 	}
@@ -386,17 +386,17 @@ func ReplaceExpressionBoth(s, replaceRight, replaceLeft string) string {
 	return fmt.Sprintf("(%s)%s(%s)", replaceLeft, operator, replaceRight)
 }
 
-func findMapValues(s map[string]int) []int {
-	la := []int{}
+func findMapValues[K comparable, V any](s map[K]V) []V {
+	la := []V{}
 	for _, val := range s {
 		la = append(la, val)
 	}
 	return la
 }
 
-func SubSliceFloat(s []int, ls []float64) []float64 {
+func SubSliceFloat[K comparable](s []int, ls []K) []K {
 	max := len(ls)
-	lss := []float64{}
+	lss := []K{}
 	for _, ele := range s {
 		if ele < max {
 			lss = append(lss, ls[ele])
@@ -405,8 +405,8 @@ func SubSliceFloat(s []int, ls []float64) []float64 {
 	return lss
 }
 
-func findValuesByKeys(keys []string, mapping map[string]int) []int {
-	la := make(([]int), 0)
+func findValuesByKeys[K comparable, V any](keys []K, mapping map[K]V) []V {
+	la := make(([]V), 0)
 	for _, key := range keys {
 		for keyy, val := range mapping {
 			if key == keyy {
@@ -571,7 +571,7 @@ func (e *Expression) MergeNode(expList ...Expression) *Expression {
 		localMapKeys := findMapKeysSorted(localMap)
 		sortedKeys := findMapKeysSorted(newMap)
 		for _, key := range sortedKeys {
-			if strContains(localMapKeys, key) == -1 {
+			if Contain(localMapKeys, key) == -1 {
 				_, max := MinMax(findMapValues(localMap))
 				localMap[key] = max + 1
 			} else {
@@ -600,7 +600,7 @@ func (e *Expression) MergeNode(expList ...Expression) *Expression {
 		localMapKeys := findMapKeysSorted(localMap)
 		sortedKeys := findMapKeysSorted(newMap)
 		for _, key := range sortedKeys {
-			if strContains(localMapKeys, key) == -1 {
+			if Contain(localMapKeys, key) == -1 {
 				_, max := MinMax(findMapValues(localMap))
 				localMap[key] = max + 1
 			} else {
@@ -629,7 +629,7 @@ func (e *Expression) MergeNode(expList ...Expression) *Expression {
 		localMapRightKeys := findMapKeysSorted(localMapRight)
 		sortedKeys := findMapKeysSorted(localMapRight)
 		for _, key := range sortedKeys {
-			if strContains(localMapLeftKeys, key) == -1 {
+			if Contain(localMapLeftKeys, key) == -1 {
 				_, max := MinMax(findMapValues(localMapLeft))
 				localMapLeft[key] = max + 1
 			} else {
@@ -1272,25 +1272,16 @@ func InequalityExpressionGenerator(s string) []string {
 	return ls
 }
 
-func ContainInt(l []int, k int) int {
-	for ind, ele := range l {
-		if ele == k {
-			return ind
-		}
-	}
-	return -1
-}
-
-func ExtractSubSlice(i []float64, j []int) []float64 {
-	k := []float64{}
+func ExtractSubSlice[K comparable](i []K, j []int) []K {
+	k := []K{}
 	for _, ele := range j {
 		k = append(k, i[ele])
 	}
 	return k
 }
 
-func CopyMap(old map[string]int) map[string]int {
-	l := map[string]int{}
+func CopyMap[K comparable, V any](old map[K]V) map[K]V {
+	l := map[K]V{}
 	for key, val := range old {
 		l[key] = val
 	}
@@ -1322,7 +1313,7 @@ func GenerateIneq(m map[string]string) *InEquaExpressions {
 			_, exists := newMap[key]
 			if !exists {
 				oldVval := i.Mapping[key]
-				if ContainInt(values, oldVval) > -1 {
+				if Contain(values, oldVval) > -1 {
 					_, max := MinMax(values)
 					newMap[key] = max + 1
 				} else {

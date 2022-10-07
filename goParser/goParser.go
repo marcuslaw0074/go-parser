@@ -560,7 +560,7 @@ func (e *Expression) findSecondEndNode() *Expression {
 	}
 }
 
-func (e *Expression) MergeNode(expList ...Expression) *Expression {
+func (e *Expression) MergeNode() {
 	localMap := map[string]int{}
 	if e.LeftNode.Origin == nil {
 		localMap = e.RightNode.Origin.Mapping
@@ -590,7 +590,6 @@ func (e *Expression) MergeNode(expList ...Expression) *Expression {
 		e.Function = function
 		e.RightNode.Origin = nil
 		e.Mapping = localMap
-		return e
 	} else if e.RightNode.Origin == nil {
 		localMap = e.LeftNode.Origin.Mapping
 		exp := *e.LeftNode.Origin
@@ -650,8 +649,6 @@ func (e *Expression) MergeNode(expList ...Expression) *Expression {
 		e.LeftNode.Origin = nil
 		e.Mapping = localMapLeft
 	}
-
-	return e
 }
 
 func (e *Expression) GenerateFunctionMap() (func(...float64) float64, map[string]int) {
@@ -810,14 +807,14 @@ func ExpressionChild(children []SimpleNode, equa Equation) Expression {
 	}
 }
 
-func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *Expression {
+func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) {
 	r := ex
 	for ind, ele := range nodePath {
 		if len(r.LeftNode.Uid) == 0 && len(r.RightNode.Uid) == 0 {
 			start := q.StartNode
 			startEqu, err := findEquationEquationList(q.EquationsList, start)
 			if err != nil {
-				return ex
+				return 
 			}
 			*ex = ExpressionChild(q.AdjList[start], startEqu)
 		} else {
@@ -827,13 +824,13 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *E
 			parentNode, err := findEquationEquationList(q.EquationsList, nodePath[ind-1])
 			currentNode, _ := findEquationEquationList(q.EquationsList, ele)
 			if err != nil {
-				return ex
+				return 
 			} else {
 				if parentNode.LeftVar == ele.Expression {
 					if r.LeftNode.Origin == nil {
 						childrenNodes := q.AdjList[ele]
 						if len(childrenNodes) == 0 {
-							return ex
+							return 
 						}
 						res := ExpressionChild(childrenNodes, currentNode)
 						r.LeftNode.Origin = &res
@@ -844,7 +841,7 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *E
 					if r.RightNode.Origin == nil {
 						childrenNodes := q.AdjList[ele]
 						if len(childrenNodes) == 0 {
-							return ex
+							return 
 						}
 						res := ExpressionChild(childrenNodes, currentNode)
 						r.RightNode.Origin = &res
@@ -855,17 +852,15 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *E
 			}
 		}
 	}
-	return ex
 }
 
-func (q *EquationList) GenerateNew(ex *Expression) *Expression {
+func (q *EquationList) GenerateNew(ex *Expression) {
 	visitedList := [][]SimpleNode{}
 	AdjDFS(q.AdjList, q.StartNode, []SimpleNode{}, &visitedList)
 	SortVisitedList(&visitedList)
 	for _, ele := range visitedList {
 		q.AddChildNodeNew(ex, ele)
 	}
-	return ex
 }
 
 func (q *EquationList) uidToExpression(m map[string]int) map[string]int {
@@ -1338,14 +1333,8 @@ func GenerateIneq(m map[string]string) *InEquaExpressions {
 	return ii
 }
 
-type Funcs interface {
-	func(...float64) bool | func(map[string]float64) bool
-}
-
-type Express struct {
-	Function    func(...float64) bool
-	Mapping     map[string]int
-	FunctionMap func(map[string]float64) bool
+func (e *Express) CallFunctionByMap(f map[string]float64) bool {
+	return e.FunctionMap(f)
 }
 
 func InputExpression(s string) (*Express, error) {
@@ -1359,10 +1348,6 @@ func InputExpression(s string) (*Express, error) {
 		e.FunctionMap = CallFunctionByMap(f, m)
 		return e, nil
 	}
-}
-
-func (e *Express) CallFunctionByMap(f map[string]float64) bool {
-	return e.FunctionMap(f)
 }
 
 func EnterExpression(s string) (func(...float64) bool, map[string]int, error) {
@@ -1424,4 +1409,14 @@ func CallFunctionByMap(f func(...float64) bool, m map[string]int) func(map[strin
 	return func(mm map[string]float64) bool {
 		return f(GenerateFloatSlice(m, mm)...)
 	}
+}
+
+type Funcs interface {
+	func(...float64) bool | func(map[string]float64) bool
+}
+
+type Express struct {
+	Function    func(...float64) bool
+	Mapping     map[string]int
+	FunctionMap func(map[string]float64) bool
 }

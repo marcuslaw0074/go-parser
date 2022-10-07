@@ -1,15 +1,14 @@
 package goparser
 
 import (
-	// "encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"math"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"github.com/google/uuid"
 )
 
 func ExtractExpParenthesis(s string) string {
@@ -287,9 +286,9 @@ func reverse[S ~[]E, E any](s S) {
 	}
 }
 
-func strContains(s []string, e string) int {
-	for ind, a := range s {
-		if a == e {
+func Contain[K comparable](l []K, k K) int {
+	for ind, ele := range l {
+		if ele == k {
 			return ind
 		}
 	}
@@ -315,6 +314,21 @@ func findFunction(operator string) (func(...float64) float64, func(float64, floa
 		return func(f ...float64) float64 { return f[0] * f[1] }, func(f1, f2 float64) float64 { return f1 * f2 }
 	case "/":
 		return func(f ...float64) float64 { return f[0] / f[1] }, func(f1, f2 float64) float64 { return f1 / f2 }
+	default:
+		return func(f ...float64) float64 { return math.NaN() }, func(f1, f2 float64) float64 { return math.NaN() }
+	}
+}
+
+func findFunctionTwin(operator string) (func(...float64) float64, func(float64, float64) float64) {
+	switch operator {
+	case "+":
+		return func(f ...float64) float64 { return 2 * f[0] }, func(f1, f2 float64) float64 { return 2 * f1 }
+	case "-":
+		return func(f ...float64) float64 { return 0 }, func(f1, f2 float64) float64 { return 0 }
+	case "*":
+		return func(f ...float64) float64 { return f[0] * f[0] }, func(f1, f2 float64) float64 { return f1 * f1 }
+	case "/":
+		return func(f ...float64) float64 { return 1 }, func(f1, f2 float64) float64 { return 1 }
 	default:
 		return func(f ...float64) float64 { return math.NaN() }, func(f1, f2 float64) float64 { return math.NaN() }
 	}
@@ -372,17 +386,17 @@ func ReplaceExpressionBoth(s, replaceRight, replaceLeft string) string {
 	return fmt.Sprintf("(%s)%s(%s)", replaceLeft, operator, replaceRight)
 }
 
-func findMapValues(s map[string]int) []int {
-	la := []int{}
+func findMapValues[K comparable, V any](s map[K]V) []V {
+	la := []V{}
 	for _, val := range s {
 		la = append(la, val)
 	}
 	return la
 }
 
-func SubSliceFloat(s []int, ls []float64) []float64 {
+func SubSliceFloat[K comparable](s []int, ls []K) []K {
 	max := len(ls)
-	lss := []float64{}
+	lss := []K{}
 	for _, ele := range s {
 		if ele < max {
 			lss = append(lss, ls[ele])
@@ -391,8 +405,8 @@ func SubSliceFloat(s []int, ls []float64) []float64 {
 	return lss
 }
 
-func findValuesByKeys(keys []string, mapping map[string]int) []int {
-	la := make(([]int), 0)
+func findValuesByKeys[K comparable, V any](keys []K, mapping map[K]V) []V {
+	la := make(([]V), 0)
 	for _, key := range keys {
 		for keyy, val := range mapping {
 			if key == keyy {
@@ -546,7 +560,7 @@ func (e *Expression) findSecondEndNode() *Expression {
 	}
 }
 
-func (e *Expression) MergeNode(expList ...Expression) *Expression {
+func (e *Expression) MergeNode() {
 	localMap := map[string]int{}
 	if e.LeftNode.Origin == nil {
 		localMap = e.RightNode.Origin.Mapping
@@ -557,7 +571,7 @@ func (e *Expression) MergeNode(expList ...Expression) *Expression {
 		localMapKeys := findMapKeysSorted(localMap)
 		sortedKeys := findMapKeysSorted(newMap)
 		for _, key := range sortedKeys {
-			if strContains(localMapKeys, key) == -1 {
+			if Contain(localMapKeys, key) == -1 {
 				_, max := MinMax(findMapValues(localMap))
 				localMap[key] = max + 1
 			} else {
@@ -576,7 +590,6 @@ func (e *Expression) MergeNode(expList ...Expression) *Expression {
 		e.Function = function
 		e.RightNode.Origin = nil
 		e.Mapping = localMap
-		return e
 	} else if e.RightNode.Origin == nil {
 		localMap = e.LeftNode.Origin.Mapping
 		exp := *e.LeftNode.Origin
@@ -586,7 +599,7 @@ func (e *Expression) MergeNode(expList ...Expression) *Expression {
 		localMapKeys := findMapKeysSorted(localMap)
 		sortedKeys := findMapKeysSorted(newMap)
 		for _, key := range sortedKeys {
-			if strContains(localMapKeys, key) == -1 {
+			if Contain(localMapKeys, key) == -1 {
 				_, max := MinMax(findMapValues(localMap))
 				localMap[key] = max + 1
 			} else {
@@ -615,7 +628,7 @@ func (e *Expression) MergeNode(expList ...Expression) *Expression {
 		localMapRightKeys := findMapKeysSorted(localMapRight)
 		sortedKeys := findMapKeysSorted(localMapRight)
 		for _, key := range sortedKeys {
-			if strContains(localMapLeftKeys, key) == -1 {
+			if Contain(localMapLeftKeys, key) == -1 {
 				_, max := MinMax(findMapValues(localMapLeft))
 				localMapLeft[key] = max + 1
 			} else {
@@ -636,8 +649,6 @@ func (e *Expression) MergeNode(expList ...Expression) *Expression {
 		e.LeftNode.Origin = nil
 		e.Mapping = localMapLeft
 	}
-
-	return e
 }
 
 func (e *Expression) GenerateFunctionMap() (func(...float64) float64, map[string]int) {
@@ -704,28 +715,41 @@ func (q *EquationList) GenerateAdjList() {
 					Numerical: num2,
 				}
 			} else {
-				valnodeRight = SimpleNode{
-					Uid:        uuid.New().String(),
-					Expression: ele.RightVar,
+				if ele.RightVar == ele.LeftVar {
+					uid := uuid.New().String()
+					valnodeRight = SimpleNode{
+						Uid:        uid,
+						Expression: ele.RightVar,
+					}
+					valnodeLeft = SimpleNode{
+						Uid:        uid,
+						Expression: ele.LeftVar,
+					}
+				} else {
+					valnodeRight = SimpleNode{
+						Uid:        uuid.New().String(),
+						Expression: ele.RightVar,
+					}
+					valnodeLeft = SimpleNode{
+						Uid:        uuid.New().String(),
+						Expression: ele.LeftVar,
+					}
 				}
-				valnodeLeft = SimpleNode{
-					Uid:        uuid.New().String(),
-					Expression: ele.LeftVar,
-				}
+
 			}
-			indKey := ContainsNode(allNode, keynode)
 			indValL := ContainsNode(allNode, valnodeLeft)
-			indValR := ContainsNode(allNode, valnodeRight)
 			if indValL > -1 {
 				valnodeLeft = allNode[indValL]
 			} else {
 				allNode = append(allNode, valnodeLeft)
 			}
+			indValR := ContainsNode(allNode, valnodeRight)
 			if indValR > -1 {
 				valnodeRight = allNode[indValR]
 			} else {
 				allNode = append(allNode, valnodeRight)
 			}
+			indKey := ContainsNode(allNode, keynode)
 			if indKey > -1 {
 				keynode = allNode[indKey]
 			} else {
@@ -741,33 +765,58 @@ func (q *EquationList) GenerateAdjList() {
 	q.StartNode = allNode[len(allNode)-1]
 }
 
-func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *Expression {
+func ExpressionChild(children []SimpleNode, equa Equation) Expression {
+	if children[0].Uid == children[1].Uid {
+		f1, f2 := findFunctionTwin(equa.Operation)
+		return Expression{
+			RightNode: Node{
+				Uid:        children[1].Uid,
+				Expression: children[1].Expression,
+				Numerical:  children[1].Numerical,
+			},
+			LeftNode: Node{
+				Uid:        children[0].Uid,
+				Expression: children[0].Expression,
+				Numerical:  children[0].Numerical,
+			},
+			Operation:       equa.Operation,
+			WholeExpression: equa.RHS,
+			Mapping:         map[string]int{children[0].Uid: 0},
+			Function:        f1,
+			LocalFunction:   f2,
+		}
+	} else {
+		f1, f2 := findFunction(equa.Operation)
+		return Expression{
+			RightNode: Node{
+				Uid:        children[1].Uid,
+				Expression: children[1].Expression,
+				Numerical:  children[1].Numerical,
+			},
+			LeftNode: Node{
+				Uid:        children[0].Uid,
+				Expression: children[0].Expression,
+				Numerical:  children[0].Numerical,
+			},
+			Operation:       equa.Operation,
+			WholeExpression: equa.RHS,
+			Mapping:         map[string]int{children[0].Uid: 0, children[1].Uid: 1},
+			Function:        f1,
+			LocalFunction:   f2,
+		}
+	}
+}
+
+func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) {
 	r := ex
 	for ind, ele := range nodePath {
 		if len(r.LeftNode.Uid) == 0 && len(r.RightNode.Uid) == 0 {
 			start := q.StartNode
 			startEqu, err := findEquationEquationList(q.EquationsList, start)
 			if err != nil {
-				return ex
+				return 
 			}
-			f1, f2 := findFunction(startEqu.Operation)
-			*ex = Expression{
-				RightNode: Node{
-					Uid:        q.AdjList[start][1].Uid,
-					Expression: q.AdjList[start][1].Expression,
-					Numerical:  q.AdjList[start][1].Numerical,
-				},
-				LeftNode: Node{
-					Uid:        q.AdjList[start][0].Uid,
-					Expression: q.AdjList[start][0].Expression,
-					Numerical:  q.AdjList[start][0].Numerical,
-				},
-				Operation:       startEqu.Operation,
-				WholeExpression: startEqu.RHS,
-				Mapping:         map[string]int{q.AdjList[start][0].Uid: 0, q.AdjList[start][1].Uid: 1},
-				Function:        f1,
-				LocalFunction:   f2,
-			}
+			*ex = ExpressionChild(q.AdjList[start], startEqu)
 		} else {
 			if ind == 0 {
 				continue
@@ -775,33 +824,16 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *E
 			parentNode, err := findEquationEquationList(q.EquationsList, nodePath[ind-1])
 			currentNode, _ := findEquationEquationList(q.EquationsList, ele)
 			if err != nil {
-				return ex
+				return 
 			} else {
 				if parentNode.LeftVar == ele.Expression {
 					if r.LeftNode.Origin == nil {
 						childrenNodes := q.AdjList[ele]
 						if len(childrenNodes) == 0 {
-							return ex
+							return 
 						}
-
-						f1, f2 := findFunction(currentNode.Operation)
-						r.LeftNode.Origin = &Expression{
-							RightNode: Node{
-								Uid:        childrenNodes[1].Uid,
-								Expression: childrenNodes[1].Expression,
-								Numerical:  childrenNodes[1].Numerical,
-							},
-							LeftNode: Node{
-								Uid:        childrenNodes[0].Uid,
-								Expression: childrenNodes[0].Expression,
-								Numerical:  childrenNodes[0].Numerical,
-							},
-							Operation:       currentNode.Operation,
-							WholeExpression: currentNode.RHS,
-							Function:        f1,
-							LocalFunction:   f2,
-							Mapping:         map[string]int{childrenNodes[0].Uid: 0, childrenNodes[1].Uid: 1},
-						}
+						res := ExpressionChild(childrenNodes, currentNode)
+						r.LeftNode.Origin = &res
 					} else {
 						r = r.LeftNode.Origin
 					}
@@ -809,26 +841,10 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *E
 					if r.RightNode.Origin == nil {
 						childrenNodes := q.AdjList[ele]
 						if len(childrenNodes) == 0 {
-							return ex
+							return 
 						}
-						f1, f2 := findFunction(currentNode.Operation)
-						r.RightNode.Origin = &Expression{
-							RightNode: Node{
-								Uid:        childrenNodes[1].Uid,
-								Expression: childrenNodes[1].Expression,
-								Numerical:  childrenNodes[1].Numerical,
-							},
-							LeftNode: Node{
-								Uid:        childrenNodes[0].Uid,
-								Expression: childrenNodes[0].Expression,
-								Numerical:  childrenNodes[0].Numerical,
-							},
-							Operation:       currentNode.Operation,
-							WholeExpression: currentNode.RHS,
-							Function:        f1,
-							LocalFunction:   f2,
-							Mapping:         map[string]int{childrenNodes[0].Uid: 0, childrenNodes[1].Uid: 1},
-						}
+						res := ExpressionChild(childrenNodes, currentNode)
+						r.RightNode.Origin = &res
 					} else {
 						r = r.RightNode.Origin
 					}
@@ -836,17 +852,15 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) *E
 			}
 		}
 	}
-	return ex
 }
 
-func (q *EquationList) GenerateNew(ex *Expression) *Expression {
+func (q *EquationList) GenerateNew(ex *Expression) {
 	visitedList := [][]SimpleNode{}
 	AdjDFS(q.AdjList, q.StartNode, []SimpleNode{}, &visitedList)
 	SortVisitedList(&visitedList)
 	for _, ele := range visitedList {
 		q.AddChildNodeNew(ex, ele)
 	}
-	return ex
 }
 
 func (q *EquationList) uidToExpression(m map[string]int) map[string]int {
@@ -1002,6 +1016,19 @@ func (F *Function) GenerateFunctions(s, name string) error {
 	}
 }
 
+func GenerateFloatSlice(m map[string]int, f map[string]float64) []float64 {
+	s := findMapKeysSorted(m)
+	k := []float64{}
+	for _, ele := range s {
+		k = append(k, f[ele])
+	}
+	return k
+}
+
+func (F *Function) CallFunctionByMap(f map[string]float64) float64 {
+	return F.Func(GenerateFloatSlice(F.Mapping, f)...)
+}
+
 func (F *Function) UpdateFunctions(s, name string) error {
 	return nil
 }
@@ -1023,4 +1050,373 @@ func (F *Function) UseFunction(input map[string]float64) (float64, error) {
 		return math.NaN(), errors.New("function is not initialized yet")
 	}
 	return F.Func(ls...), nil
+}
+
+const (
+	LE  = "<"
+	GE  = ">"
+	LEQ = "<="
+	GEQ = ">="
+)
+
+type InEquaExpression struct {
+	Inequality string                `json:"inequality"`
+	Func       func(...float64) bool `json:"-"`
+	Mapping    map[string]int        `json:"-"`
+	Operator   string                `json:"operator"`
+	Expression string                `json:"expression"`
+	Result     bool                  `json:"result"`
+}
+
+type InEquaExpressions struct {
+	Inequalities []InEquaExpression    `json:"inequalities"`
+	Func         func(...float64) bool `json:"-"`
+	Mapping      map[string]int        `json:"-"`
+	Expression   string                `json:"expression"`
+	Result       bool                  `json:"result"`
+}
+
+func GenerateFunctions(sts []string) {
+	m := map[string]*InEquaExpression{}
+	for _, ele := range sts {
+		con := false
+		for _, el := range []string{LEQ, GEQ, LE, GE} {
+			if strings.Contains(ele, el) {
+				m[strings.Split(ele, "=")[0]] = &InEquaExpression{
+					Inequality: strings.Split(ele, "=")[1],
+				}
+				m[strings.Split(ele, "=")[0]].GenerateFunction()
+				con = true
+			}
+		}
+		if !con {
+			m[strings.Split(ele, "=")[0]] = &InEquaExpression{
+				Expression: strings.Split(ele, "=")[1],
+			}
+		}
+	}
+}
+
+func (i *InEquaExpression) GenerateFunction() error {
+	s := []string{}
+	for _, ele := range []string{LEQ, GEQ, LE, GE} {
+		s = strings.Split(i.Inequality, ele)
+		if len(s) > 1 {
+			i.Operator = ele
+			break
+		}
+	}
+	if len(s) != 2 {
+		return errors.New("more than one inequality operator")
+	}
+	fu, m, err := FunctionGenerator(ExpressionGenerator(s[1]))
+	if err != nil {
+		return err
+	}
+	_, max := MinMax(findMapValues(m))
+	m[s[0]] = max + 1
+	i.Mapping = m
+	i.Func = func(f ...float64) bool {
+		switch i.Operator {
+		case LEQ:
+			// fmt.Println(f[len(f)-1] ,LEQ, fu(f[:len(f)-1]...))
+			return f[len(f)-1] <= fu(f[:len(f)-1]...)
+		case GEQ:
+			// fmt.Println(f[len(f)-1] ,GEQ, fu(f[:len(f)-1]...))
+			return f[len(f)-1] >= fu(f[:len(f)-1]...)
+		case LE:
+			// fmt.Println(f[len(f)-1] ,LE, fu(f[:len(f)-1]...))
+			return f[len(f)-1] < fu(f[:len(f)-1]...)
+		case GE:
+			// fmt.Println(f[len(f)-1] ,GE, fu(f[:len(f)-1]...))
+			return f[len(f)-1] > fu(f[:len(f)-1]...)
+		default:
+			panic("invalid operator")
+		}
+	}
+	return nil
+}
+
+func (i *InEquaExpression) CallFunctionByMap(f map[string]float64) bool {
+	return i.Func(GenerateFloatSlice(i.Mapping, f)...)
+}
+
+func ContainAndOr(s string) bool {
+	pattern := `(?i)[ \(\)]+(and|or)[ \(\)]+`
+	match, err := regexp.MatchString(pattern, s)
+	if err != nil {
+		return false
+	} else if match {
+		return true
+	} else {
+		return false
+	}
+}
+
+func RemoveRecuAndOrParenthesis(s string) []string {
+	ls := make([]string, 0)
+	ind := 0
+	for {
+		if ContainParenthesis(s) && ContainAndOr(s) {
+			s1 := ExtractMaxDepthParenthesis(s)
+			newVar := fmt.Sprintf("EXPP%v", ind)
+			s = strings.Replace(s, s1, newVar, 1)
+			ls = append(ls, fmt.Sprintf("%s=%s", newVar, s1[1:len(s1)-1]))
+			ind++
+		} else {
+			newVar := fmt.Sprintf("EXPP%v", ind)
+			ls = append(ls, fmt.Sprintf("%s=%s", newVar, s))
+			break
+		}
+	}
+	return ls
+}
+
+func ExtractBalanceParenthesis(s string) string {
+	balance := 0
+	for ind, ele := range s {
+		if string(ele) == "(" {
+			balance++
+		} else if string(ele) == ")" {
+			balance--
+		}
+		if balance == 0 {
+			s = s[:ind+1]
+			break
+		}
+	}
+	return s
+}
+
+func ReplaceInequality(s string) (string, map[string]string, error) {
+	pattern := `\( *[_a-zA-Z]\w*[\>\<][\= ]*[_a-zA-Z \(\)\+\-\*\/]*\)`
+	res, err := regexp.Compile(pattern)
+	m := map[string]string{}
+	if err != nil {
+		return "", m, err
+	} else {
+		matchStr := res.FindAllString(s, -1)
+		for ind, ele := range matchStr {
+			ele = ExtractBalanceParenthesis(ele)
+			key := fmt.Sprintf("Inequa_%v", ind)
+			m[key] = ele[1 : len(ele)-1]
+			s = strings.ReplaceAll(s, ele, key)
+		}
+		return s, m, nil
+	}
+}
+
+func SplitRecuAndOrExpression(s string, ini, init2 int) ([]string, error) {
+	if strings.Index(strings.ToLower(s), "and") == -1 && strings.Index(strings.ToLower(s), "or") == -1 {
+		return []string{s}, nil
+	}
+	sInit := strings.Split(s, "=")[0]
+	s = strings.Split(s, "=")[1]
+	pattern := `(?i)[_a-z]\w* *(and|or) *[_a-z]\w*`
+	matchStr := make([]string, 0)
+	ind := 0
+	for {
+		match, err := regexp.MatchString(pattern, s)
+		if err != nil {
+			return matchStr, err
+		}
+		if match {
+			s1, err := SplitAndOrExpression(s)
+			if err != nil {
+				return matchStr, err
+			}
+			newVar := fmt.Sprintf("ADD_SUB%v", ind)
+			s = strings.Replace(s, s1, newVar, 1)
+			matchStr = append(matchStr, fmt.Sprintf("%s=%s", newVar, s1))
+		} else {
+			break
+		}
+		ind++
+	}
+	lhs := strings.Split(matchStr[len(matchStr)-1], "=")[0]
+	matchStr[len(matchStr)-1] = strings.Replace(matchStr[len(matchStr)-1], lhs, sInit, 1)
+	return matchStr, nil
+}
+
+func SplitAndOrExpression(s string) (string, error) {
+	pattern := `(?i)[_a-z]\w* *(and|or) *[_a-z]\w*`
+	matchStr := make([]string, 0)
+	match, err := regexp.MatchString(pattern, s)
+	if err != nil {
+		return "", err
+	}
+	if match {
+		res, err := regexp.Compile(pattern)
+		if err != nil {
+			return "", err
+		}
+		matchStr = res.FindAllString(s, 1)
+	}
+	return matchStr[0], nil
+}
+
+func InequalityExpressionGenerator(s string) []string {
+	stLs := RemoveRecuAndOrParenthesis(s)
+	ls := make([]string, 0)
+	for ind, ele := range stLs {
+		res, err := SplitRecuAndOrExpression(ele, ind, 0)
+		if err == nil {
+			ls = append(ls, res...)
+		}
+	}
+	return ls
+}
+
+func ExtractSubSlice[K comparable](i []K, j []int) []K {
+	k := []K{}
+	for _, ele := range j {
+		k = append(k, i[ele])
+	}
+	return k
+}
+
+func CopyMap[K comparable, V any](old map[K]V) map[K]V {
+	l := map[K]V{}
+	for key, val := range old {
+		l[key] = val
+	}
+	return l
+}
+
+func GenerateIneq(m map[string]string) *InEquaExpressions {
+	ls := []string{}
+	for key := range m {
+		ls = append(ls, key)
+	}
+	ii := &InEquaExpressions{
+		Inequalities: []InEquaExpression{},
+	}
+	sort.Strings(ls)
+	newMap := map[string]int{}
+	for _, ele := range ls {
+		i := &InEquaExpression{
+			Inequality: m[ele],
+		}
+		j := &InEquaExpression{
+			Inequality: m[ele],
+			Expression: ele,
+		}
+		i.GenerateFunction()
+		keys := findMapKeysSorted(i.Mapping)
+		for _, key := range keys {
+			values := findMapValues(newMap)
+			_, exists := newMap[key]
+			if !exists {
+				oldVval := i.Mapping[key]
+				if Contain(values, oldVval) > -1 {
+					_, max := MinMax(values)
+					newMap[key] = max + 1
+				} else {
+					newMap[key] = oldVval
+				}
+			}
+		}
+		j.Mapping = CopyMap(i.Mapping)
+		for key := range i.Mapping {
+			i.Mapping[key] = newMap[key]
+		}
+		j.Func = func(f ...float64) bool {
+			g := map[string]float64{}
+			for o, s := range i.Mapping {
+				g[o] = f[s]
+			}
+			return i.Func(GenerateFloatSlice(j.Mapping, g)...)
+		}
+		ii.Inequalities = append(ii.Inequalities, *j)
+	}
+	ii.Mapping = newMap
+	return ii
+}
+
+func (e *Express) CallFunctionByMap(f map[string]float64) bool {
+	return e.FunctionMap(f)
+}
+
+func InputExpression(s string) (*Express, error) {
+	e := &Express{}
+	f, m, err := EnterExpression(s)
+	if err != nil {
+		return e, err
+	} else {
+		e.Function = f
+		e.Mapping = m
+		e.FunctionMap = CallFunctionByMap(f, m)
+		return e, nil
+	}
+}
+
+func EnterExpression(s string) (func(...float64) bool, map[string]int, error) {
+	res, m, err := ReplaceInequality(s)
+	if err != nil {
+		return func(f ...float64) bool { return false }, map[string]int{}, err
+	} else {
+		res2 := InequalityExpressionGenerator(res)
+		H := GenerateIneq(m)
+		for _, ele := range res2 {
+			exp := strings.Split(ele, "=")[0]
+			s := strings.Split(ele, "=")[1]
+			if strings.Index(s, " and ") > -1 {
+				s0 := strings.Split(s, " and ")[0]
+				s1 := strings.Split(s, " and ")[1]
+				ss0 := InEquaExpression{}
+				ss1 := InEquaExpression{}
+				for _, el := range H.Inequalities {
+					if el.Expression == s0 {
+						ss0 = el
+					}
+					if el.Expression == s1 {
+						ss1 = el
+					}
+				}
+				H.Inequalities = append(H.Inequalities, InEquaExpression{
+					Func: func(f ...float64) bool {
+						return ss0.Func(f...) && ss1.Func(f...)
+					},
+					Expression: exp,
+					Mapping:    H.Mapping,
+				})
+			} else if strings.Index(s, " or ") > -1 {
+				s0 := strings.Split(s, " or ")[0]
+				s1 := strings.Split(s, " or ")[1]
+				ss0 := InEquaExpression{}
+				ss1 := InEquaExpression{}
+				for _, el := range H.Inequalities {
+					if el.Expression == s0 {
+						ss0 = el
+					}
+					if el.Expression == s1 {
+						ss1 = el
+					}
+				}
+				H.Inequalities = append(H.Inequalities, InEquaExpression{
+					Func: func(f ...float64) bool {
+						return ss0.Func(f...) || ss1.Func(f...)
+					},
+					Expression: exp,
+				})
+			}
+		}
+		return H.Inequalities[len(H.Inequalities)-1].Func, H.Mapping, nil
+	}
+}
+
+func CallFunctionByMap(f func(...float64) bool, m map[string]int) func(map[string]float64) bool {
+	return func(mm map[string]float64) bool {
+		return f(GenerateFloatSlice(m, mm)...)
+	}
+}
+
+type Funcs interface {
+	func(...float64) bool | func(map[string]float64) bool
+}
+
+type Express struct {
+	Function    func(...float64) bool
+	Mapping     map[string]int
+	FunctionMap func(map[string]float64) bool
 }

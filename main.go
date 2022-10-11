@@ -4,6 +4,7 @@ import (
 	// "bufio"
 	"fmt"
 	"go-parser/goparser"
+	"math"
 	// "sync"
 	// "math"
 	// "os"
@@ -135,16 +136,21 @@ func main() {
 		Name: "test",
 		Conditions: []goparser.ConditionExpression{
 			{
-				Expression: "b*a",
-				Inequality: "(b>c*a)",
+				Expression: "b*a*d",
+				Inequality: "(c>b/a)",
+			},
+			{
+				Expression: "a/b*d",
+				Inequality: "(b>c/a)",
 			},
 		},
 	}
-	fff, _ := i.ConditionFunction()
+	fff, _ := i.ConditionFunction(func(m map[string]float64) float64 {return 0})
 	fmt.Println(fff(map[string]float64{
-		"b": 7,
-		"a": 2,
+		"b": 1,
+		"a": 3,
 		"c": 3,
+		"d": 5,
 	}))
 
 	ee, _ := goparser.InputExpression("((f>a+(b+v)*a+a/b/a/a) and (g>b+v)) or (u>b+v*o)")
@@ -179,4 +185,5 @@ func main() {
 	// 		fmt.Println("Input not slice of float64")
 	// 	}
 	// }
+	fmt.Println(math.NaN())
 }

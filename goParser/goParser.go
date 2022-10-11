@@ -1439,7 +1439,7 @@ type IfElseCondition struct {
 	Conditions []ConditionExpression
 }
 
-func (i *IfElseCondition) ConditionFunction() (func(map[string]float64) float64, error) {
+func (i *IfElseCondition) ConditionFunction(defaultF func(map[string]float64) float64) (func(map[string]float64) float64, error) {
 	allFunction := make([]*ConditionFunctions, 0)
 	for ind, mapping := range i.Conditions {
 		ex := &Function{}
@@ -1458,6 +1458,6 @@ func (i *IfElseCondition) ConditionFunction() (func(map[string]float64) float64,
 				return ele.ExpressionFunction(input)
 			}
 		}
-		return math.NaN()
+		return defaultF(input)
 	}, nil
 }

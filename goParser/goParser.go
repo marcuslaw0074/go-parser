@@ -814,7 +814,7 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) {
 			start := q.StartNode
 			startEqu, err := findEquationEquationList(q.EquationsList, start)
 			if err != nil {
-				return 
+				return
 			}
 			*ex = ExpressionChild(q.AdjList[start], startEqu)
 		} else {
@@ -824,13 +824,13 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) {
 			parentNode, err := findEquationEquationList(q.EquationsList, nodePath[ind-1])
 			currentNode, _ := findEquationEquationList(q.EquationsList, ele)
 			if err != nil {
-				return 
+				return
 			} else {
 				if parentNode.LeftVar == ele.Expression {
 					if r.LeftNode.Origin == nil {
 						childrenNodes := q.AdjList[ele]
 						if len(childrenNodes) == 0 {
-							return 
+							return
 						}
 						res := ExpressionChild(childrenNodes, currentNode)
 						r.LeftNode.Origin = &res
@@ -841,7 +841,7 @@ func (q *EquationList) AddChildNodeNew(ex *Expression, nodePath []SimpleNode) {
 					if r.RightNode.Origin == nil {
 						childrenNodes := q.AdjList[ele]
 						if len(childrenNodes) == 0 {
-							return 
+							return
 						}
 						res := ExpressionChild(childrenNodes, currentNode)
 						r.RightNode.Origin = &res
@@ -1419,4 +1419,45 @@ type Express struct {
 	Function    func(...float64) bool
 	Mapping     map[string]int
 	FunctionMap func(map[string]float64) bool
+}
+
+type ConditionFunctions struct {
+	ExpressionFunction func(map[string]float64) float64
+	ExpressionMapping  map[string]int
+	InequalityFunction func(map[string]float64) bool
+	InequalityMapping  map[string]int
+}
+
+type ConditionExpression struct {
+	Inequality string
+	Expression string
+}
+
+type IfElseCondition struct {
+	Uid        int
+	Name       string
+	Conditions []ConditionExpression
+}
+
+func (i *IfElseCondition) ConditionFunction() (func(map[string]float64) float64, error) {
+	allFunction := make([]*ConditionFunctions, 0)
+	for ind, mapping := range i.Conditions {
+		ex := &Function{}
+		ex.GenerateFunctions(mapping.Expression, fmt.Sprintf("%v", ind))
+		inq, _ := InputExpression(mapping.Inequality)
+		allFunction = append(allFunction, &ConditionFunctions{
+			ExpressionFunction: ex.CallFunctionByMap,
+			ExpressionMapping:  ex.Mapping,
+			InequalityFunction: inq.FunctionMap,
+			InequalityMapping:  inq.Mapping,
+		})
+	}
+	return func(input map[string]float64) float64 {
+		for _, ele := range allFunction {
+			if ele.InequalityFunction(input) {
+				return ele.ExpressionFunction(input)
+			}
+		}
+		return math.NaN()
+	}, nil
 }

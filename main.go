@@ -42,7 +42,6 @@ func main() {
 
 	// MyFunc[int8](1)
 
-
 	// vegetableSet := map[string]bool{
 	// 	"potato":  true,
 	// 	"cabbage": true,
@@ -130,6 +129,23 @@ func main() {
 	// f, m, _ := goparser.EnterExpression("((f>a+(b+v)*a+a/b/a/a) and (g>b+v)) or (u>b+v*o)")
 	// ff := goparser.CallFunctionByMap(f, m)
 	// fmt.Println(ff(map[string]float64{"a": 3, "b": 1, "f": 13, "g": 8, "o": 6, "u": 12, "v": 2}))
+
+	i := &goparser.IfElseCondition{
+		Uid:  0,
+		Name: "test",
+		Conditions: []goparser.ConditionExpression{
+			{
+				Expression: "b*a",
+				Inequality: "(b>c*a)",
+			},
+		},
+	}
+	fff, _ := i.ConditionFunction()
+	fmt.Println(fff(map[string]float64{
+		"b": 7,
+		"a": 2,
+		"c": 3,
+	}))
 
 	ee, _ := goparser.InputExpression("((f>a+(b+v)*a+a/b/a/a) and (g>b+v)) or (u>b+v*o)")
 	fmt.Println(ee.CallFunctionByMap(map[string]float64{"a": 3, "b": 1, "f": 13, "g": 8, "o": 6, "u": 12, "v": 2}))

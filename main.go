@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"go-parser/goparser"
 	"math"
+	"strings"
+
 	// "sync"
 	// "math"
 	// "os"
-	// "regexp"
+	"regexp"
 	// "sort"
 	// "strings"
 	// "time"
@@ -38,6 +40,38 @@ import (
 // func MyFunc[T MyConstraint](input T) {
 // 	// ...
 // }
+
+func GenerateIfElseFunction(s, Name string, Uid int) func(map[string]float64) float64 {
+	i := &goparser.IfElseCondition{
+		Uid: Uid,
+		Name: Name,
+		Conditions: GenerateConditionExpression(s),
+	}
+	f, _, _ := i.ConditionFunction()
+	return f
+}
+
+func GenerateConditionExpression(s string) []goparser.ConditionExpression {
+	res := []goparser.ConditionExpression{}
+	pattern := `\{([^\{\}]|\n|\r)*\}`
+	pattern_ := `\([^\{\}]*\)`
+	matches := regexp.MustCompile(pattern).FindAllString(s, -1)
+	split := regexp.MustCompile(pattern).Split(s, -1)
+	for ind, ele := range split {
+		fmt.Println(ind, ele)
+		val := regexp.MustCompile(pattern_).FindAllString(ele, 1)
+		if len(val) == 1 {
+			fmt.Println(matches, split, val)
+			sp := strings.ReplaceAll(regexp.MustCompile(`(?i)return`).Split(matches[ind], -1)[1], "}", "")
+			res = append(res, goparser.ConditionExpression{
+				Inequality: val[0][1 : len(val[0])-1],
+				Expression: strings.ReplaceAll(sp, " ", ""),
+			})
+		}
+
+	}
+	return res
+}
 
 func main() {
 
@@ -131,6 +165,8 @@ func main() {
 	// ff := goparser.CallFunctionByMap(f, m)
 	// fmt.Println(ff(map[string]float64{"a": 3, "b": 1, "f": 13, "g": 8, "o": 6, "u": 12, "v": 2}))
 
+	fmt.Println(GenerateConditionExpression("if ((e<b-a) and (e<d-f)) { return (b-a)*c*d } else if ((e>b-a) or (e<d-f)) { return e*e }"))
+
 	i := &goparser.IfElseCondition{
 		Uid:  0,
 		Name: "test",
@@ -145,16 +181,23 @@ func main() {
 			},
 		},
 	}
-	fff, _ := i.ConditionFunction(func(m map[string]float64) float64 {return 0})
+	fff, _, _ := i.ConditionFunction()
 	fmt.Println(fff(map[string]float64{
-		"b": 1,
+		"b": 10,
 		"a": 3,
 		"c": 3,
 		"d": 5,
 	}))
 
-	ee, _ := goparser.InputExpression("((f>a+(b+v)*a+a/b/a/a) and (g>b+v)) or (u>b+v*o)")
-	fmt.Println(ee.CallFunctionByMap(map[string]float64{"a": 3, "b": 1, "f": 13, "g": 8, "o": 6, "u": 12, "v": 2}))
+	fmt.Println(GenerateIfElseFunction(" if ((c>b/a)) { return b*a*d } else if ((b>c/a)) { return a/b*d }", "t", 0)(map[string]float64{
+		"b": 10,
+		"a": 3,
+		"c": 3,
+		"d": 5,
+	}))
+
+	ee, _ := goparser.InputExpression("(f>a+(b+v)*a+a/b/a/a) and (g>b+v) or (u>b+v*o)")
+	fmt.Println(ee.CallFunctionByMap(map[string]float64{"a": 3, "b": 1, "f": 13, "g": 4, "o": 6, "u": 12, "v": 2}))
 
 	Fu := &goparser.Function{}
 	Fu.GenerateFunctions("a+(b+v)*a+a/b/a/a", "test")

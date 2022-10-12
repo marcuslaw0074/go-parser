@@ -3,12 +3,14 @@ package goparser
 import (
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"math"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 func ExtractExpParenthesis(s string) string {
@@ -1334,7 +1336,7 @@ func GenerateIneq(m map[string]string) *InEquaExpressions {
 }
 
 func (e *Express) CallFunctionByMap(f map[string]float64) bool {
-	return e.FunctionMap(f)
+	return e.Function(GenerateFloatSlice(e.Mapping, f)...)
 }
 
 func InputExpression(s string) (*Express, error) {
@@ -1439,12 +1441,23 @@ type IfElseCondition struct {
 	Conditions []ConditionExpression
 }
 
-func (i *IfElseCondition) ConditionFunction(defaultF func(map[string]float64) float64) (func(map[string]float64) float64, error) {
+func (i *IfElseCondition) ConditionFunction() (func(map[string]float64) float64, []string, error) {
 	allFunction := make([]*ConditionFunctions, 0)
+	allPoints := []string{}
 	for ind, mapping := range i.Conditions {
 		ex := &Function{}
 		ex.GenerateFunctions(mapping.Expression, fmt.Sprintf("%v", ind))
 		inq, _ := InputExpression(mapping.Inequality)
+		for key := range ex.Mapping {
+			if Contain(allPoints, key) == -1 {
+				allPoints = append(allPoints, key)
+			}
+		}
+		for key := range inq.Mapping {
+			if Contain(allPoints, key) == -1 {
+				allPoints = append(allPoints, key)
+			}
+		}
 		allFunction = append(allFunction, &ConditionFunctions{
 			ExpressionFunction: ex.CallFunctionByMap,
 			ExpressionMapping:  ex.Mapping,
@@ -1458,6 +1471,38 @@ func (i *IfElseCondition) ConditionFunction(defaultF func(map[string]float64) fl
 				return ele.ExpressionFunction(input)
 			}
 		}
-		return defaultF(input)
-	}, nil
+		return math.NaN()
+	}, allPoints, nil
+}
+
+func (s *ConditionExpression) FillStruct(m map[string]interface{}) error {
+	for k, v := range m {
+		err := SetField(s, k, v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func SetField(obj interface{}, name string, value interface{}) error {
+	structValue := reflect.ValueOf(obj).Elem()
+	structFieldValue := structValue.FieldByName(name)
+
+	if !structFieldValue.IsValid() {
+		return fmt.Errorf("No such field: %s in obj", name)
+	}
+
+	if !structFieldValue.CanSet() {
+		return fmt.Errorf("Cannot set %s field value", name)
+	}
+
+	structFieldType := structFieldValue.Type()
+	val := reflect.ValueOf(value)
+	if structFieldType != val.Type() {
+		return errors.New("Provided value type didn't match obj field type")
+	}
+
+	structFieldValue.Set(val)
+	return nil
 }
